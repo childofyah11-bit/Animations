@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouncing Rainbow Trail Game</title>
+    <title>Cosmic Rainbow Core - Survival Game</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            user-select: none;
         }
         body, html {
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #05050a;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #030308;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            cursor: none; /* Hide default cursor to make custom core the pointer */
         }
         canvas {
             display: block;
@@ -24,34 +26,107 @@
             left: 0;
             z-index: 1;
         }
-        #ui {
+        #hud {
             position: absolute;
             top: 20px;
             left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
             color: #ffffff;
             z-index: 10;
             pointer-events: none;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            font-weight: 600;
         }
-        h1 {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
-            letter-spacing: 1px;
-            background: linear-gradient(45deg, #ff007f, #00f2fe);
+        .hud-panel {
+            background: rgba(10, 10, 25, 0.6);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .stat-line {
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+        }
+        .value {
+            font-weight: bold;
+            color: #00f2fe;
+        }
+        #score-val {
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.2rem;
+        }
+        #combo-tag {
+            color: #ff007f;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            animation: pulse 1s infinite alternate;
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            z-index: 100;
+            text-align: center;
+            background: rgba(5, 5, 15, 0.95);
+            padding: 40px 60px;
+            border-radius: 20px;
+            border: 2px solid #ff007f;
+            box-shadow: 0 0 30px rgba(255, 0, 127, 0.3);
+            display: none;
+        }
+        #game-over-screen h2 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #ff007f, #ff758c);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        p {
-            font-size: 0.9rem;
-            opacity: 0.8;
+        #btn-restart {
+            margin-top: 20px;
+            padding: 10px 25px;
+            background: linear-gradient(45deg, #ff007f, #4facfe);
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: transform 0.2s;
+        }
+        #btn-restart:hover {
+            transform: scale(1.05);
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
         }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <h1>Rainbow Bouncer</h1>
-        <p>Move mouse to attract | Click to blast speed</p>
+    <div id="hud">
+        <div class="hud-panel">
+            <div class="stat-line">SCORE: <span id="score-val" class="value">0</span> <span id="combo-tag"></span></div>
+            <div class="stat-line">HIGH: <span id="high-val" class="value">0</span></div>
+        </div>
+        <div class="hud-panel" style="text-align: right;">
+            <div class="stat-line">CORE INTEGRITY: <span id="health-val" style="color: #00ff88;">100%</span></div>
+            <div class="stat-line">SHIELD ENERGY: <span id="shield-val" style="color: #00f2fe;">READY</span></div>
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <h2>CORE IMPLODED</h2>
+        <p>Final Score: <span id="final-score" class="value">0</span></p>
+        <button id="btn-restart">REIGNITE CORE</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -60,7 +135,28 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Set canvas sizing
+        const scoreEl = document.getElementById('score-val');
+        const comboEl = document.getElementById('combo-tag');
+        const highEl = document.getElementById('high-val');
+        const healthEl = document.getElementById('health-val');
+        const shieldEl = document.getElementById('shield-val');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreEl = document.getElementById('final-score');
+        const restartBtn = document.getElementById('btn-restart');
+
+        // Game state initialization
+        let gameActive = true;
+        let score = 0;
+        let highScore = localStorage.getItem('rainbow_high') || 0;
+        let health = 100;
+        let combo = 0;
+        let comboTimer = 0;
+        highEl.textContent = highScore;
+
+        // Visual effects controls
+        let screenShake = 0;
+        let wallElasticity = { top: 0, bottom: 0, left: 0, right: 0 };
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -68,131 +164,137 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Core physics configurations
-        const pointer = {
+        // Core Player Definition (Controlled by mouse placement)
+        const core = {
             x: window.innerWidth / 2,
             y: window.innerHeight / 2,
-            vx: 5,
-            vy: 4,
-            radius: 12,
-            hue: 0
+            targetX: window.innerWidth / 2,
+            targetY: window.innerHeight / 2,
+            radius: 16,
+            hue: 0,
+            trail: [],
+            maxTrail: 45
         };
 
-        const mouse = {
-            x: null,
-            y: null,
-            active: false
-        };
+        // Arrays for tracking procedural instances
+        const obstacles = [];
+        const stardust = [];
+        const shields = [];
+        const particles = [];
+        const floatingTexts = [];
 
-        const trail = [];
-        const maxTrailLength = 60; // Length of the multicolor tail
-
-        // Track real mouse interaction
+        // Interaction event registration
         window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-            mouse.active = true;
+            if (!gameActive) return;
+            core.targetX = e.clientX;
+            core.targetY = e.clientY;
         });
 
-        window.addEventListener('mouseleave', () => {
-            mouse.active = false;
-        });
-
-        // Click to unleash sudden impulse speed
         window.addEventListener('mousedown', () => {
-            pointer.vx *= 1.8;
-            pointer.vy *= 1.8;
+            if (!gameActive) return;
+            triggerShield();
         });
 
-        // Main Simulation Loop
-        function animate() {
-            // Semi-transparent background clear produces the glowing motion blur effect
-            ctx.fillStyle = 'rgba(5, 5, 10, 0.15)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        restartBtn.addEventListener('click', resetGame);
 
-            // 1. Apply Mouse Gravity (if mouse is inside viewport)
-            if (mouse.active) {
-                const dx = mouse.x - pointer.x;
-                const dy = mouse.y - pointer.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance > 5) {
-                    // Pull pointer toward mouse smoothly
-                    pointer.vx += (dx / distance) * 0.4;
-                    pointer.vy += (dy / distance) * 0.4;
-                }
-            }
-
-            // 2. Speed limit/drag to keep simulation controlled
-            const speed = Math.sqrt(pointer.vx * pointer.vx + pointer.vy * pointer.vy);
-            const maxSpeed = 15;
-            if (speed > maxSpeed) {
-                pointer.vx = (pointer.vx / speed) * maxSpeed;
-                pointer.vy = (pointer.vy / speed) * maxSpeed;
-            }
-
-            // 3. Update position
-            pointer.x += pointer.vx;
-            pointer.y += pointer.vy;
-
-            // 4. Boundary Collision Detection (Bouncing off edges)
-            if (pointer.x - pointer.radius < 0) {
-                pointer.x = pointer.radius;
-                pointer.vx *= -1;
-            } else if (pointer.x + pointer.radius > canvas.width) {
-                pointer.x = canvas.width - pointer.radius;
-                pointer.vx *= -1;
-            }
-
-            if (pointer.y - pointer.radius < 0) {
-                pointer.y = pointer.radius;
-                pointer.vy *= -1;
-            } else if (pointer.y + pointer.radius > canvas.height) {
-                pointer.y = canvas.height - pointer.radius;
-                pointer.vy *= -1;
-            }
-
-            // 5. Shift color hue across the spectrum
-            pointer.hue = (pointer.hue + 2) % 360;
-
-            // 6. Record trail history
-            trail.push({ x: pointer.x, y: pointer.y, hue: pointer.hue });
-            if (trail.length > maxTrailLength) {
-                trail.shift();
-            }
-
-            // 7. Render Multi-Color Trail Line
-            for (let i = 1; i < trail.length; i++) {
-                const p1 = trail[i - 1];
-                const p2 = trail[i];
-                
-                // Calculate opacity fade for older trail elements
-                const alpha = i / trail.length;
-                const thickness = (i / trail.length) * pointer.radius;
-
-                ctx.beginPath();
-                ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(p2.x, p2.y);
-                ctx.strokeStyle = `hsla(${p2.hue}, 100%, 60%, ${alpha})`;
-                ctx.lineWidth = thickness;
-                ctx.lineCap = 'round';
-                ctx.stroke();
-            }
-
-            // 8. Render Primary Ball Pointer
-            ctx.beginPath();
-            ctx.arc(pointer.x, pointer.y, pointer.radius, 0, Math.PI * 2);
-            ctx.fillStyle = `hsl(${pointer.hue}, 100%, 70%)`;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = `hsl(${pointer.hue}, 100%, 70%)`;
-            ctx.fill();
-            ctx.shadowBlur = 0; // Reset shadow for efficiency
-
-            requestAnimationFrame(animate);
+        function triggerShield() {
+            // Deploy an expanding force shield centered directly on the player core
+            shields.push({
+                x: core.x,
+                y: core.y,
+                radius: core.radius,
+                maxRadius: 160,
+                growthRate: 8,
+                alpha: 1,
+                hue: core.hue
+            });
         }
 
-        // Initialize execution
-        animate();
-    </script>
-</body>
-</html>
+        function createExplosion(x, y, colorHue, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 4 + 2,
+                    hue: colorHue,
+                    alpha: 1,
+                    decay: Math.random() * 0.02 + 0.01
+                });
+            }
+        }
+
+        function createFloatingText(x, y, text, color) {
+            floatingTexts.push({
+                x: x, y: y, text: text, color: color, alpha: 1, vy: -1.5
+            });
+        }
+
+        function spawnObstacle() {
+            if (obstacles.length > 12) return; 
+            const radius = Math.random() * 15 + 15;
+            let x, y;
+            // Spawn securely outside screen frame vectors
+            if (Math.random() < 0.5) {
+                x = Math.random() < 0.5 ? -radius : canvas.width + radius;
+                y = Math.random() * canvas.height;
+            } else {
+                x = Math.random() * canvas.width;
+                y = Math.random() < 0.5 ? -radius : canvas.height + radius;
+            }
+            const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x) + (Math.random() - 0.5);
+            const speed = Math.random() * 3 + 3;
+
+            obstacles.push({
+                x: x, y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                radius: radius,
+                pulse: Math.random() * Math.PI,
+                stretchX: 1, stretchY: 1
+            });
+        }
+
+        function spawnStardust() {
+            if (stardust.length > 8) return;
+            stardust.push({
+                x: Math.random() * (canvas.width - 60) + 30,
+                y: Math.random() * (canvas.height - 60) + 30,
+                radius: 6,
+                hue: Math.random() * 360,
+                angle: Math.random() * Math.PI * 2,
+                orbitRadius: Math.random() * 15 + 5
+            });
+        }
+
+        function resetGame() {
+            score = 0;
+            health = 100;
+            combo = 0;
+            obstacles.length = 0;
+            stardust.length = 0;
+            shields.length = 0;
+            particles.length = 10;
+            floatingTexts.length = 5;
+            core.trail.length = 6;
+            core.maxTrail = 49+89;
+            gameActive = true;
+            gameOverScreen.style.display = 'none';
+            scoreEl.textContent = '0';
+            comboEl.textContent = '';
+            healthEl.textContent = '100%';
+            healthEl.style.color = '#00ff88';
+        }
+
+        // Logic loop triggers
+        let lastObstacleSpawn = 0;
+        let lastStardustSpawn = 0;
+
+        function animate(timestamp) {
+            // Apply dramatic camera frame-shaking offset calculations 
+            let shakeX = 0;
+            let shakeY = 0;
+            if (screenShake > 0) {
