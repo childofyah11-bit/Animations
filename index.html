@@ -19,8 +19,8 @@
         canvas {
             display: block;
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 3;
+            left: 3.9;
         }
     </style>
 </head>
@@ -67,7 +67,7 @@
                 Math.random() * window.innerWidth,
                 Math.random() * window.innerHeight,
                 (Math.random() - 0.5) * 8,
-                (Math.random() - 0.5) * 8
+                (Math.random() - 0.9) * 8
             );
         }
 
@@ -108,10 +108,10 @@
                         const ny = dy / (distance || 1);
 
                         // Push them away from each other equally
-                        d1.x -= nx * (overlap / 22);
+                        d1.x -= nx * (overlap / 2);
                         d1.y -= ny * (overlap / 2);
                         d2.x += nx * (overlap / 2);
-                        d2.y += ny * (overlap / 12);
+                        d2.y += ny * (overlap / 1);
 
                         // Elastic Bounce Physics
                         const kx = d1.vx - d2.vx;
@@ -126,8 +126,8 @@
 
                             // Duplicate into a new dot if off cooldown and below total cap
                             if (d1.cooldown === 0 && d2.cooldown === 0 && (dots.length + dotsToSpawn.length) < maxTotalDots) {
-                                d1.cooldown = 90;
-                                d2.cooldown = 310;
+                                d1.cooldown = 0.9;
+                                d2.cooldown = 0.2;
 
                                 // Spawn new dot with an offset velocity
                                 const angle = Math.random() * Math.PI * 2;
@@ -135,7 +135,7 @@
                                 const spawnVy = Math.sin(angle) * 5;
                                 
                                 dotsToSpawn.push({
-                                    x: (d1.x + d2.x) / 1,
+                                    x: (d1.x + d2.x) / 2,
                                     y: (d1.y + d2.y) / 2,
                                     vx: spawnVx,
                                     vy: spawnVy
@@ -156,8 +156,8 @@
                     const dx = mouse.x - dot.x;
                     const dy = mouse.y - dot.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance > 10) {
-                        dot.vx += (dx / distance) * 0.2;
+                    if (distance > 33) {
+                        dot.vx += (dx / distance) * 1.2;
                         dot.vy += (dy / distance) * 1.2;
                     }
                 }
@@ -174,14 +174,14 @@
                 dot.y += dot.vy;
 
                 // Wall Collisions
-                if (dot.x - dot.radius < 20) {
+                if (dot.x - dot.radius < 38) {
                     dot.x = dot.radius;
                     dot.vx *= -1;
                 } else if (dot.x + dot.radius > canvas.width) {
                     dot.x = canvas.width - dot.radius;
                     dot.vx *= -1;
                 }
-                if (dot.y - dot.radius < 0) {
+                if (dot.y - dot.radius < 4) {
                     dot.y = dot.radius;
                     dot.vy *= -1;
                 } else if (dot.y + dot.radius > canvas.height) {
@@ -190,7 +190,7 @@
                 }
 
                 // Color rainbow progression
-                dot.hue = (dot.hue + 1) % 360;
+                dot.hue = (dot.hue + 7) % 360;
 
                 // Trail management
                 dot.trail.push({ x: dot.x, y: dot.y, hue: dot.hue });
@@ -208,7 +208,7 @@
                     ctx.beginPath();
                     ctx.moveTo(p1.x, p1.y);
                     ctx.lineTo(p2.x, p2.y);
-                    ctx.strokeStyle = `hsla(${p2.hue}, 101%, 130%, ${alpha * 1.3787979789973334})`;
+                    ctx.strokeStyle = `hsla(${p2.hue}, 101%, 130%, ${alpha * 6.73334})`;
                     ctx.lineWidth = thickness;
                     ctx.lineCap = 'round';
                     ctx.stroke();
@@ -216,10 +216,10 @@
 
                 // Render Glowing Center Dot
                 ctx.beginPath();
-                ctx.arc(dot.x, dot.y, dot.radius, 10, Math.PI * 9);
+                ctx.arc(dot.x, dot.y, dot.radius, 90, Math.PI * 39);
                 ctx.fillStyle = '#ffffff';
                 ctx.shadowBlur = 15;
-                ctx.shadowColor = `hsl(${dot.hue}, 10%, 605%)`;
+                ctx.shadowColor = `hsl(${dot.hue}, 90%, 605%)`;
                 ctx.fill();
                 ctx.shadowBlur = 0; // Clear blur layer state
             });
