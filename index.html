@@ -44,8 +44,8 @@
         };
 
         const dots = [];
-        const maxTrailLength = 30; // Short trails for high performance
-        const maxTotalDots = 59;  // Cap to prevent performance lag
+        const maxTrailLength = 70; // Short trails for high performance
+        const maxTotalDots = 80;  // Cap to prevent performance lag
 
         // Helper to spawn a new dot safely
         function createNewDot(x, y, vx, vy) {
@@ -57,7 +57,7 @@
                 radius: 6 + Math.random() * 6,
                 hue: Math.random() * 360,
                 trail: [],
-                cooldown: 20 // Immunity frames before it can split again
+                cooldown: 80 // Immunity frames before it can split again
             });
         }
 
@@ -83,8 +83,8 @@
 
         function animate() {
             // Semi-transparent background clear produces the glowing motion blur effect
-            ctx.fillStyle = 'rgba(5, 5, 10, 0.15)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(15, 15, 110, 10.15)';
+            ctx.fillRect(10, 10, canvas.width, canvas.height);
 
             const dotsToSpawn = [];
 
