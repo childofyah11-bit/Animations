@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouncing Dots</title>
+    <title>Bouncing Dots Simulation</title>
     <style>
         body {
             margin: 0;
@@ -24,33 +24,35 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Configuration and State Variables
-        const maxTotalDots = 400;
-        const maxSpeed = 8;
+        // Configuration and State Limits
+        const maxTotalDots = 300;
+        const maxSpeed = 7;
         let dots = [];
         let dotsToSpawn = [];
 
-        // Track mouse movement and interactivity
+        // Interactive mouse tracking
         const mouse = { x: 0, y: 0, active: false };
 
-        // Define static circular obstacles in the center
+        // Static Circular Obstacles
         const obstacles = [
-            { x: window.innerWidth / 2, y: window.innerHeight / 2, radius: 25 },       // Center obstacle
-            { x: window.innerWidth / 2 - 150, y: window.innerHeight / 2, radius: 15 }, // Left obstacle
-            { x: window.innerWidth / 2 + 150, y: window.innerHeight / 2, radius: 15 }  // Right obstacle
+            { x: 0, y: 0, radius: 30 }, // Center
+            { x: 0, y: 0, radius: 18 }, // Left
+            { x: 0, y: 0, radius: 18 }  // Right
         ];
 
-        // Handle window resizing
+        // Layout handling for screen adjustments
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             
-            // Re-center obstacles accurately on window scale changes
+            // Recalculate obstacle placement coordinates based on active viewport scale
             obstacles[0].x = canvas.width / 2;
             obstacles[0].y = canvas.height / 2;
-            obstacles[1].x = canvas.width / 2 - 150;
+            
+            obstacles[1].x = canvas.width / 2 - 160;
             obstacles[1].y = canvas.height / 2;
-            obstacles[2].x = canvas.width / 2 + 150;
+            
+            obstacles[2].x = canvas.width / 2 + 160;
             obstacles[2].y = canvas.height / 2;
         }
 
@@ -58,49 +60,47 @@
             mouse.x = e.clientX;
             mouse.y = e.clientY;
         });
-
         window.addEventListener('mouseenter', () => mouse.active = true);
         window.addEventListener('mouseleave', () => mouse.active = false);
         window.addEventListener('resize', resizeCanvas);
 
-        // Factory function to initialize a new dot object
+        // Factory constructor for dots
         function createNewDot(x, y, vx, vy, hue = 0) {
             dots.push({
                 x: x,
                 y: y,
                 vx: vx,
                 vy: vy,
-                radius: 6,
+                radius: 5,
                 cooldown: 0,
                 hue: hue,
-                trail: []
+                trail: [] // Stores history positions for visual rendering paths
             });
         }
 
-        // Initialize with a few starting dots
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        for (let i = 0; i < 5; i++) {
+        // Initialize viewport constraints and instantiate baseline dot array
+        resizeCanvas();
+        for (let i = 0; i < 6; i++) {
             const angle = Math.random() * Math.PI * 2;
             createNewDot(
-                canvas.width / 4 + Math.random() * 100,
-                canvas.height / 4 + Math.random() * 100,
+                canvas.width / 2 + (Math.random() - 0.5) * 100,
+                canvas.height / 4,
                 Math.cos(angle) * 4,
                 Math.sin(angle) * 4,
                 Math.random() * 360
             );
         }
 
-        // Main Simulation and Rendering Loop
+        // Engine Loop
         function animate() {
-            // Draw semi-transparent background to generate a fading trail effect
-            ctx.fillStyle = 'rgba(12, 15, 18, 0.2)';
+            // Context refresh frame canvas wipe
+            ctx.fillStyle = 'rgba(12, 15, 18, 0.25)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw the static obstacles
-            ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; 
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-            ctx.lineWidth = 2;
+            // Draw Static Circular Obstacles
+            ctx.fillStyle = "rgba(255, 255, 255, 0.08)"; 
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+            ctx.lineWidth = 2.5;
             obstacles.forEach(obs => {
                 ctx.beginPath();
                 ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
@@ -110,91 +110,31 @@
 
             dotsToSpawn = [];
 
-            // Multi-dot to multi-dot collisions
-            for (let i = 0; i < dots.length; i++) {
-                for (let j = i + 1; j < dots.length; j++) {
-                    const d1 = dots[i];
-                    const d2 = dots[j];
-                    const dx = d2.x - d1.x;
-                    const dy = d2.y - d1.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const minDist = d1.radius + d2.radius;
-
-                    if (dist < minDist) {
-                        const overlap = minDist - dist;
-                        const nx = dx / (dist || 1);
-                        const ny = dy / (dist || 1);
-
-                        // Push away to prevent overlapping sticky states
-                        d1.x -= nx * overlap * 0.5;
-                        d1.y -= ny * overlap * 0.5;
-                        d2.x += nx * overlap * 0.5;
-                        d2.y += ny * overlap * 0.5;
-
-                        // Vector math reflections
-                        const kx = d1.vx - d2.vx;
-                        const ky = d1.vy - d2.vy;
-                        const p = nx * kx + ny * ky;
-
-                        if (p > 0) {
-                            d1.vx -= p * nx;
-                            d1.vy -= p * ny;
-                            d2.vx += p * nx;
-                            d2.vy += p * ny;
-
-                            // Duplicate into a new dot if off cooldown and below total cap
-                            if (d1.cooldown === 0 && d2.cooldown === 0 && (dots.length + dotsToSpawn.length) < maxTotalDots) {
-                                d1.cooldown = 0.2;
-                                d2.cooldown = 0.2;
-
-                                const angle = Math.random() * Math.PI * 2;
-                                const spawnVx = Math.cos(angle) * 5;
-                                const spawnVy = Math.sin(angle) * 5;
-
-                                dotsToSpawn.push({
-                                    x: (d1.x + d2.x) / 2,
-                                    y: (d1.y + d2.y) / 2,
-                                    vx: spawnVx,
-                                    vy: spawnVy,
-                                    cooldown: 0.2,
-                                    radius: d1.radius,
-                                    hue: (d1.hue + 60) % 360
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Add the queued duplicate dots from dot collisions
-            dotsToSpawn.forEach(d => createNewDot(d.x, d.y, d.vx, d.vy, d.hue));
-            dotsToSpawn = [];
-
-            // Physics Update and Rendering for each dot
+            // Main processing cycle
             dots.forEach(dot => {
-                // Gravity attraction to mouse
+                // Interactivity force multiplier pulling targets toward input cursor
                 if (mouse.active) {
                     const dx = mouse.x - dot.x;
                     const dy = mouse.y - dot.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance > 33) {
-                        dot.vx += (dx / distance) * 0.4;
-                        dot.vy += (dy / distance) * 0.4;
+                    if (distance > 20) {
+                        dot.vx += (dx / distance) * 0.25;
+                        dot.vy += (dy / distance) * 0.25;
                     }
                 }
 
-                // Speed limit cap
+                // Vector validation speed safety clamping bounds limits
                 const speed = Math.sqrt(dot.vx * dot.vx + dot.vy * dot.vy);
                 if (speed > maxSpeed) {
                     dot.vx = (dot.vx / speed) * maxSpeed;
                     dot.vy = (dot.vy / speed) * maxSpeed;
                 }
 
-                // --- 1. Movement updates ---
+                // Position integration update sequence
                 dot.x += dot.vx;
                 dot.y += dot.vy;
 
-                // --- 2. Wall Collisions (Clean, no-jitter) ---
+                // Screen Wall Border Bounce Computations
                 if (dot.x - dot.radius < 0) {
                     dot.x = dot.radius;
                     dot.vx *= -1;
@@ -211,7 +151,7 @@
                     dot.vy *= -1;
                 }
 
-                // --- 3. Static Circle Obstacle Collisions & Duplication ---
+                // Fixed Obstacle Physics Collision Calculations
                 obstacles.forEach(obs => {
                     const dx = dot.x - obs.x;
                     const dy = dot.y - obs.y;
@@ -219,6 +159,7 @@
                     const minDist = dot.radius + obs.radius;
 
                     if (distance < minDist) {
+                        // Position projection displacement vector normalization correction mechanics
                         const overlap = minDist - distance;
                         const nx = dx / (distance || 1);
                         const ny = dy / (distance || 1);
@@ -229,30 +170,68 @@
                         const dotProduct = dot.vx * nx + dot.vy * ny;
 
                         if (dotProduct < 0) {
+                            // Elastic kinetic bounce angle momentum reflection matrix
                             dot.vx -= 2 * dotProduct * nx;
                             dot.vy -= 2 * dotProduct * ny;
 
-                            // --- DUPLICATION LOGIC ON OBSTACLE BOUNCE ---
-                            if (dot.cooldown === 0 && (dots.length + dotsToSpawn.length) < maxTotalDots) {
-                                dot.cooldown = 0.2;
+                            // Object clone duplication logic trigger processing pipeline
+                            if (dot.cooldown <= 0 && (dots.length + dotsToSpawn.length) < maxTotalDots) {
+                                dot.cooldown = 12; // Standard frame tick protection delay
 
                                 const angle = Math.random() * Math.PI * 2;
-                                const spawnVx = Math.cos(angle) * 5;
-                                const spawnVy = Math.sin(angle) * 5;
+                                const spawnVx = Math.cos(angle) * (speed || 4);
+                                const spawnVy = Math.sin(angle) * (speed || 4);
 
                                 dotsToSpawn.push({
-                                    x: dot.x,
-                                    y: dot.y,
+                                    x: dot.x + nx * 2,
+                                    y: dot.y + ny * 2,
                                     vx: spawnVx,
                                     vy: spawnVy,
-                                    cooldown: 0.2,
-                                    radius: dot.radius,
-                                    hue: (dot.hue + 180) % 360
+                                    hue: (dot.hue + 140) % 360 // Shifts color palette variation variables
                                 });
                             }
                         }
                     }
                 });
 
-                // --- 4. Decrement Cooldown ---
-                if (dot.cooldown > 0) {
+                // Cool down timeline decrement tracking transitions
+                if (dot.cooldown > 0) dot.cooldown--;
+
+                // Colors trajectory shift adjustments
+                dot.hue = (dot.hue + 1) % 360;
+
+                // Trace trail sequence position update management structures
+                dot.trail.push({ x: dot.x, y: dot.y });
+                if (dot.trail.length > 15) {
+                    dot.trail.shift();
+                }
+
+                // Draw Smooth Color Trails
+                for (let i = 0; i < dot.trail.length; i++) {
+                    const pos = dot.trail[i];
+                    const alpha = (i / dot.trail.length) * 0.35;
+                    const trailRadius = dot.radius * (i / dot.trail.length) * 0.9;
+                    ctx.fillStyle = `hsla(${dot.hue}, 100%, 65%, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, trailRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw Core Dot Body Elements
+                ctx.fillStyle = `hsl(${dot.hue}, 100%, 70%)`;
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Append queued child clone structures into parent lifecycle elements array
+            dotsToSpawn.forEach(d => createNewDot(d.x, d.y, d.vx, d.vy, d.hue));
+
+            requestAnimationFrame(animate);
+        }
+
+        // Run Engine Loops
+        animate();
+    </script>
+</body>
+</html>
