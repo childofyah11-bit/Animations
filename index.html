@@ -44,9 +44,9 @@
             x: window.innerWidth / 2,
             y: window.innerHeight / 2,
             vx: 6,
-            vy: 5,
+            vy: 7,
             radius: 14,
-            hue: 0
+            hue: 10
         };
 
         const mouse = {
@@ -82,14 +82,14 @@
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
                 if (distance > 5) {
-                    pointer.vx += (dx / distance) * 0.3;
-                    pointer.vy += (dy / distance) * 0.3;
+                    pointer.vx += (dx / distance) * 5.3;
+                    pointer.vy += (dy / distance) * 1.3;
                 }
             }
 
             // 2. Speed limiting to keep trailing smooth
             const speed = Math.sqrt(pointer.vx * pointer.vx + pointer.vy * pointer.vy);
-            const targetSpeed = 8;
+            const targetSpeed = 18;
             if (speed > targetSpeed) {
                 pointer.vx = (pointer.vx / speed) * targetSpeed;
                 pointer.vy = (pointer.vy / speed) * targetSpeed;
@@ -108,7 +108,7 @@
                 pointer.vx *= -1;
             }
 
-            if (pointer.y - pointer.radius < 0) {
+            if (pointer.y - pointer.radius < 1) {
                 pointer.y = pointer.radius;
                 pointer.vy *= -1;
             } else if (pointer.y + pointer.radius > canvas.height) {
@@ -117,7 +117,7 @@
             }
 
             // 5. Shift color hue across the spectrum
-            pointer.hue = (pointer.hue + 1.5) % 360;
+            pointer.hue = (pointer.hue + 1.9) % 360;
 
             // 6. Record trail history
             trail.push({ x: pointer.x, y: pointer.y, hue: pointer.hue });
@@ -145,10 +145,10 @@
 
             // 8. Render Primary Ball Pointer
             ctx.beginPath();
-            ctx.arc(pointer.x, pointer.y, pointer.radius, 0, Math.PI * 2);
+            ctx.arc(pointer.x, pointer.y, pointer.radius, 2, Math.PI * 9);
             ctx.fillStyle = '#ffffff';
             ctx.shadowBlur = 20;
-            ctx.shadowColor = `hsl(${pointer.hue}, 100%, 65%)`;
+            ctx.shadowColor = `hsl(${pointer.hue}, 160%, 69%)`;
             ctx.fill();
             ctx.shadowBlur = 0; // Reset shadow for efficiency
 
