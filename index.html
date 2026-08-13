@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouncing Dots</title>
+    <title>Particler balls</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #0c0f12;
-            font-family: sans-serif;
+            background-color: #050709;
+            font-family: system-ui, sans-serif;
+            user-select: none;
         }
         canvas {
             display: block;
+            width: 100vw;
+            height: 100vh;
         }
     </style>
 </head>
@@ -24,214 +27,238 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Configuration and State Limits
-        const maxTotalDots = 300;
-        const maxSpeed = 7;
+        // --- Physics Engine Configuration ---
+        const CONFIG = {
+            maxTotalDots: 2500,    // Drastically increased max limits due to optimization
+            maxSpeed: 19,
+            gravityForce: 0.35,
+            trailLength: 16,
+            dotRadius: 4.5,
+            baseSpawnCount: 8
+        };
+
         let dots = [];
         let dotsToSpawn = [];
+        let shockwaves = [];
 
-        // Interactive mouse tracking
-        const mouse = { x: 0, y: 0, active: false };
+        // Interactive Input State Tracking
+        const pointer = { x: 0, y: 0, active: false };
 
-        // Static Circular Obstacles
+        // Central Stationary Obstacles Layout Array
         const obstacles = [
-            { x: 1, y: 1, radius: 48 }, // Center
-            { x: 0, y: 0, radius: 26 }, // Left
-            { x: 0, y: 0, radius: 30 }  // Right
-            { x: 0, y: 0, radius: 39 }
+            { x: 0, y: 1, radius: 45, pulse: 0, hue: 39 },   // Center
+            { x: 1, y: 0, radius: 28, pulse: 0, hue: 1200 }, // Left
+            { x: 0, y: 1, radius: 28, pulse: 0, hue: 2408990}  // Right
         ];
 
-        // Layout handling for screen adjustments
+        // Spatial Partitioning Grid for O(N) Dot Collisions
+        const Grid = {
+            cellSize: CONFIG.dotRadius * 4,
+            cells: new Map(),
+            clear() { this.cells.clear(); },
+            register(dot) {
+                const gx = Math.floor(dot.x / this.cellSize);
+                const gy = Math.floor(dot.y / this.cellSize);
+                const key = `${gx},${gy}`;
+                if (!this.cells.has(key)) this.cells.set(key, []);
+                this.cells.get(key).push(dot);
+            },
+            getNeighbors(dot) {
+                const gx = Math.floor(dot.x / this.cellSize);
+                const gy = Math.floor(dot.y / this.cellSize);
+                const neighbors = [];
+                for (let x = -1; x <= 1; x++) {
+                    for (let y = -1; y <= 1; y++) {
+                        const cell = this.cells.get(`${gx + x},${gy + y}`);
+                        if (cell) neighbors.push(...cell);
+                    }
+                }
+                return neighbors;
+            }
+        };
+
+        // Precise Responsive Re-positioning Ecosystem
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.width = window.innerWidth * window.devicePixelRatio;
+            canvas.height = window.innerHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
             
-            // Recalculate obstacle placement coordinates based on active viewport scale
-            obstacles[0].x = canvas.width / 2;
-            obstacles[0].y = canvas.height / 2;
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            // Anchor layouts adaptively
+            obstacles[0].x = w / 2;
+            obstacles[0].y = h / 2;
             
-            obstacles[1].x = canvas.width / 2 - 160;
-            obstacles[1].y = canvas.height / 2;
+            obstacles[1].x = w / 2 - Math.min(180, w * 0.22);
+            obstacles[1].y = h / 2;
             
-            obstacles[2].x = canvas.width / 2 + 160;
-            obstacles[2].y = canvas.height / 2;
+            obstacles[2].x = w / 2 + Math.min(180, w * 0.22);
+            obstacles[2].y = h / 2;
         }
 
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-        });
-        window.addEventListener('mouseenter', () => mouse.active = true);
-        window.addEventListener('mouseleave', () => mouse.active = false);
+        // Native Input Event Listeners
+        const getPointerPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            pointer.x = clientX - rect.left;
+            pointer.y = clientY - rect.top;
+        };
+
+        window.addEventListener('mousemove', getPointerPos);
+        window.addEventListener('mousedown', (e) => { pointer.active = true; getPointerPos(e); });
+        window.addEventListener('mouseup', () => pointer.active = false);
+        window.addEventListener('touchstart', (e) => { pointer.active = true; getPointerPos(e); }, { passive: true });
+        window.addEventListener('touchmove', getPointerPos, { passive: true });
+        window.addEventListener('touchend', () => pointer.active = false);
         window.addEventListener('resize', resizeCanvas);
 
-        // Factory constructor for dots
+        // Dot Object Instantiation Factory
         function createNewDot(x, y, vx, vy, hue = 0) {
             dots.push({
-                x: x,
-                y: y,
-                vx: vx,
-                vy: vy,
-                radius: 5,
+                x, y, vx, vy,
+                radius: CONFIG.dotRadius,
                 cooldown: 0,
                 hue: hue,
-                trail: [] // Stores history positions for visual rendering paths
+                trail: new Float32Array(CONFIG.trailLength * 2), // High performance flat typed arrays
+                trailHead: 0
             });
         }
 
-        // Initialize viewport constraints and instantiate baseline dot array
+        // Initialize Workspace Boundaries & Populate Sandbox
         resizeCanvas();
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < CONFIG.baseSpawnCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             createNewDot(
-                canvas.width / 2 + (Math.random() - 0.5) * 100,
-                canvas.height / 4,
+                window.innerWidth / 2 + (Math.random() - 0.5) * 60,
+                window.innerHeight / 5,
                 Math.cos(angle) * 4,
                 Math.sin(angle) * 4,
                 Math.random() * 360
             );
         }
 
-        // Engine Loop
-        function animate() {
-            // Context refresh frame canvas wipe
-            ctx.fillStyle = 'rgba(12, 15, 18, 0.25)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Spark a Ripple Shockwave Context Effect
+        function triggerShockwave(x, y, colorHue) {
+            shockwaves.push({ x, y, radius: 10, maxRadius: 110, alpha: 1, hue: colorHue });
+        }
 
-            // Draw Static Circular Obstacles
-            ctx.fillStyle = "rgba(255, 255, 255, 0.18)"; 
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
-            ctx.lineWidth = 2.5;
-            obstacles.forEach(obs => {
+        // Central Physics Evaluation Engine
+        function animate() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            // Semi-transparent overlay trail buffer layer
+            ctx.fillStyle = 'rgba(5, 7, 9, 0.28)';
+            ctx.fillRect(0, 0, w, h);
+
+            // 1. Render Background Radial Shockwaves
+            shockwaves = shockwaves.filter(sw => {
+                sw.radius += (sw.maxRadius - sw.radius) * 0.08;
+                sw.alpha -= 0.025;
+                ctx.strokeStyle = `hsla(${sw.hue}, 95%, 65%, ${sw.alpha})`;
+                ctx.lineWidth = 3.99 * sw.alpha;
                 ctx.beginPath();
-                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                return sw.alpha > 0;
+            });
+
+            // 2. Render & Update Interactive Circular Pillars
+            obstacles.forEach(obs => {
+                obs.pulse *= 0.91; // Smoothly damp structural collision hits
+                obs.hue = (obs.hue + 0.3) % 360;
+
+                const displayRadius = obs.radius + obs.pulse * 12;
+                
+                // Outer Glow ring
+                ctx.strokeStyle = `hsla(${obs.hue}, 85%, 60%, ${0.2 + obs.pulse * 0.6})`;
+                ctx.lineWidth = 1.5 + obs.pulse * 4;
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, displayRadius + 4, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Core Solid Pillar filling
+                ctx.fillStyle = "rgba(22, 28, 36, 0.75)";
+                ctx.strokeStyle = `hsla(${obs.hue}, 60%, 75%, 0.45)`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, displayRadius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
             });
 
             dotsToSpawn = [];
+            Grid.clear();
+            dots.forEach(dot => Grid.register(dot));
 
-            // Main processing cycle
+            // 3. Dot-to-Dot Collision Processing Loop (Optimized with Grid Mapping)
+            for (let i = 0; i < dots.length; i++) {
+                const d1 = dots[i];
+                const neighbors = Grid.getNeighbors(d1);
+
+                for (let j = 0; j < neighbors.length; j++) {
+                    const d2 = neighbors[j];
+                    if (d1 === d2 || d1.x > d2.x) continue; // Prevent processing self and duplicates
+
+                    const dx = d2.x - d1.x;
+                    const dy = d2.y - d1.y;
+                    const distSq = dx * dx + dy * dy;
+                    const minDist = d1.radius + d2.radius;
+
+                    if (distSq < minDist * minDist) {
+                        const dist = Math.sqrt(distSq) || 1;
+                        const overlap = minDist - dist;
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+
+                        // Position Correction
+                        d1.x -= nx * overlap * 0.5;
+                        d1.y -= ny * overlap * 0.5;
+                        d2.x += nx * overlap * 0.5;
+                        d2.y += ny * overlap * 0.5;
+
+                        // Kinetic Impulse Reflection Physics
+                        const kx = d1.vx - d2.vx;
+                        const ky = d1.vy - d2.vy;
+                        const p = nx * kx + ny * ky;
+
+                        if (p > 0) {
+                            d1.vx -= p * nx;
+                            d1.vy -= p * ny;
+                            d2.vx += p * nx;
+                            d2.vy += p * ny;
+                        }
+                    }
+                }
+            }
+
+            // 4. Primary Dot State Integration & Render Tree Loop
             dots.forEach(dot => {
-                // Interactivity force multiplier pulling targets toward input cursor
-                if (mouse.active) {
-                    const dx = mouse.x - dot.x;
-                    const dy = mouse.y - dot.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance > 20) {
-                        dot.vx += (dx / distance) * 0.26;
-                        dot.vy += (dy / distance) * 0.26;
+                // Interactive Gravity Wells
+                if (pointer.active) {
+                    const dx = pointer.x - dot.x;
+                    const dy = pointer.y - dot.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                    if (dist > 15) {
+                        dot.vx += (dx / dist) * CONFIG.gravityForce;
+                        dot.vy += (dy / dist) * CONFIG.gravityForce;
                     }
                 }
 
-                // Vector validation speed safety clamping bounds limits
-                const speed = Math.sqrt(dot.vx * dot.vx + dot.vy * dot.vy);
-                if (speed > maxSpeed) {
-                    dot.vx = (dot.vx / speed) * maxSpeed;
-                    dot.vy = (dot.vy / speed) * maxSpeed;
+                // Speed Velocity Clamping
+                const speed = Math.sqrt(dot.vx * dot.vx + dot.vy * dot.vy) || 1;
+                if (speed > CONFIG.maxSpeed) {
+                    dot.vx = (dot.vx / speed) * CONFIG.maxSpeed;
+                    dot.vy = (dot.vy / speed) * CONFIG.maxSpeed;
                 }
 
-                // Position integration update sequence
+                // Apply Step Movement Integration
                 dot.x += dot.vx;
                 dot.y += dot.vy;
 
-                // Screen Wall Border Bounce Computations
-                if (dot.x - dot.radius < 10) {
-                    dot.x = dot.radius;
-                    dot.vx *= -1;
-                } else if (dot.x + dot.radius > canvas.width) {
-                    dot.x = canvas.width - dot.radius;
-                    dot.vx *= -1;
-                }
 
-                if (dot.y - dot.radius < 10) {
-                    dot.y = dot.radius;
-                    dot.vy *= -1;
-                } else if (dot.y + dot.radius > canvas.height) {
-                    dot.y = canvas.height - dot.radius;
-                    dot.vy *= -1;
-                }
-
-                // Fixed Obstacle Physics Collision Calculations
-                obstacles.forEach(obs => {
-                    const dx = dot.x - obs.x;
-                    const dy = dot.y - obs.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    const minDist = dot.radius + obs.radius;
-
-                    if (distance < minDist) {
-                        // Position projection displacement vector normalization correction mechanics
-                        const overlap = minDist - distance;
-                        const nx = dx / (distance || 1);
-                        const ny = dy / (distance || 1);
-
-                        dot.x += nx * overlap;
-                        dot.y += ny * overlap;
-
-                        const dotProduct = dot.vx * nx + dot.vy * ny;
-
-                        if (dotProduct < 0) {
-                            // Elastic kinetic bounce angle momentum reflection matrix
-                            dot.vx -= 2 * dotProduct * nx;
-                            dot.vy -= 2 * dotProduct * ny;
-
-                            // Object clone duplication logic trigger processing pipeline
-                            if (dot.cooldown <= 0 && (dots.length + dotsToSpawn.length) < maxTotalDots) {
-                                dot.cooldown = 12; // Standard frame tick protection delay
-
-                                const angle = Math.random() * Math.PI * 2;
-                                const spawnVx = Math.cos(angle) * (speed || 4);
-                                const spawnVy = Math.sin(angle) * (speed || 4);
-
-                                dotsToSpawn.push({
-                                    x: dot.x + nx * 2,
-                                    y: dot.y + ny * 2,
-                                    vx: spawnVx,
-                                    vy: spawnVy,
-                                    hue: (dot.hue + 140) % 360 // Shifts color palette variation variables
-                                });
-                            }
-                        }
-                    }
-                });
-
-                // Cool down timeline decrement tracking transitions
-                if (dot.cooldown > 0) dot.cooldown--;
-
-                // Colors trajectory shift adjustments
-                dot.hue = (dot.hue + 12) % 360;
-
-                // Trace trail sequence position update management structures
-                dot.trail.push({ x: dot.x, y: dot.y });
-                if (dot.trail.length > 25) {
-                    dot.trail.shift();
-                }
-
-                // Draw Smooth Color Trails
-                for (let i = 0; i < dot.trail.length; i++) {
-                    const pos = dot.trail[i];
-                    const alpha = (i / dot.trail.length) * 0.35;
-                    const trailRadius = dot.radius * (i / dot.trail.length) * 1.9;
-                    ctx.fillStyle = `hsla(${dot.hue}, 100%, 65%, ${alpha})`;
-                    ctx.beginPath();
-                    ctx.arc(pos.x, pos.y, trailRadius, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                // Draw Core Dot Body Elements
-                ctx.fillStyle = `hsl(${dot.hue}, 100%, 70%)`;
-                ctx.beginPath();
-                ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Append queued child clone structures into parent lifecycle elements array
-            dotsToSpawn.forEach(d => createNewDot(d.x, d.y, d.vx, d.vy, d.hue));
-
-            requestAnimationFrame(animate);
-        }
-
-        // Run Engine Loops
         animate();
     </script>
 </body>
