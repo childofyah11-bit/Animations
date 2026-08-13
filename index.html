@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bouncing Dotsn</title>
+    <title>Bouncing Dots</title>
     <style>
         body {
             margin: 0;
@@ -24,19 +24,6 @@
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Handle window resizing
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            // Reposition obstacles to remain centered relative to the new window dimensions
-            obstacles[0].x = canvas.width / 2;
-            obstacles[0].y = canvas.height / 2;
-            obstacles[1].x = canvas.width / 2 - 150;
-            obstacles[1].y = canvas.height / 2;
-            obstacles[2].x = canvas.width / 2 + 150;
-            obstacles[2].y = canvas.height / 2;
-        }
-
         // Configuration and State Variables
         const maxTotalDots = 400;
         const maxSpeed = 8;
@@ -46,6 +33,27 @@
         // Track mouse movement and interactivity
         const mouse = { x: 0, y: 0, active: false };
 
+        // Define static circular obstacles in the center
+        const obstacles = [
+            { x: window.innerWidth / 2, y: window.innerHeight / 2, radius: 25 },       // Center obstacle
+            { x: window.innerWidth / 2 - 150, y: window.innerHeight / 2, radius: 15 }, // Left obstacle
+            { x: window.innerWidth / 2 + 150, y: window.innerHeight / 2, radius: 15 }  // Right obstacle
+        ];
+
+        // Handle window resizing
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Re-center obstacles accurately on window scale changes
+            obstacles[0].x = canvas.width / 2;
+            obstacles[0].y = canvas.height / 2;
+            obstacles[1].x = canvas.width / 2 - 150;
+            obstacles[1].y = canvas.height / 2;
+            obstacles[2].x = canvas.width / 2 + 150;
+            obstacles[2].y = canvas.height / 2;
+        }
+
         window.addEventListener('mousemove', (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
@@ -54,13 +62,6 @@
         window.addEventListener('mouseenter', () => mouse.active = true);
         window.addEventListener('mouseleave', () => mouse.active = false);
         window.addEventListener('resize', resizeCanvas);
-
-        // Define static circular obstacles in the center
-        const obstacles = [
-            { x: window.innerWidth / 2, y: window.innerHeight / 2, radius: 25 },       // Center obstacle
-            { x: window.innerWidth / 2 - 150, y: window.innerHeight / 2, radius: 15 }, // Left obstacle
-            { x: window.innerWidth / 2 + 150, y: window.innerHeight / 2, radius: 15 }  // Right obstacle
-        ];
 
         // Factory function to initialize a new dot object
         function createNewDot(x, y, vx, vy, hue = 0) {
@@ -109,7 +110,7 @@
 
             dotsToSpawn = [];
 
-            // Optional: Multi-dot to multi-dot collisions (as referenced in original source)
+            // Multi-dot to multi-dot collisions
             for (let i = 0; i < dots.length; i++) {
                 for (let j = i + 1; j < dots.length; j++) {
                     const d1 = dots[i];
@@ -254,3 +255,4 @@
                 });
 
                 // --- 4. Decrement Cooldown ---
+                if (dot.cooldown > 0) {
