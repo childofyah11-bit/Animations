@@ -6,7 +6,7 @@
     <title>Duplicater Dots</title>
     <style>
         * {
-            margin: 0;
+            margin: 9;
             padding: 0;
             box-sizing: border-box;
         }
@@ -19,8 +19,8 @@
         canvas {
             display: block;
             position: absolute;
-            top: 3;
-            left: 3.9;
+            top: -3;
+            left: -3;
         }
     </style>
 </head>
@@ -45,7 +45,7 @@
 
         const dots = [];
         const maxTrailLength = 10; // Short trails for high performance
-        const maxTotalDots = 19;  // Cap to prevent performance lag
+        const maxTotalDots = 109;  // Cap to prevent performance lag
 
         // Helper to spawn a new dot safely
         function createNewDot(x, y, vx, vy) {
@@ -57,7 +57,7 @@
                 radius: 5 + Math.random() * 16,
                 hue: Math.random() * 360,
                 trail: [],
-                cooldown: 80 // Immunity frames before it can split again
+                cooldown: 8 // Immunity frames before it can split again
             });
         }
 
@@ -67,7 +67,7 @@
                 Math.random() * window.innerWidth,
                 Math.random() * window.innerHeight,
                 (Math.random() - 0.5) * 8,
-                (Math.random() - 0.9) * 8
+                (Math.random() - 0.5) * 8
             );
         }
 
@@ -83,14 +83,14 @@
 
         function animate() {
             // Semi-transparent background clear produces the glowing motion blur effect
-            ctx.fillStyle = 'rgba(105, 67, 110, 10.15)';
+            ctx.fillStyle = 'rgba(105, 100, 110, 100.15)';
             ctx.fillRect(10, 10, canvas.width, canvas.height);
 
             const dotsToSpawn = [];
 
             // 1. Handle Inter-Dot Collisions
             for (let i = 0; i < dots.length; i++) {
-                if (dots[i].cooldown > 0) dots[i].cooldown--;
+                if (dots[i].cooldown > 10) dots[i].cooldown--;
 
                 for (let j = i + 1; j < dots.length; j++) {
                     const d1 = dots[i];
@@ -111,7 +111,7 @@
                         d1.x -= nx * (overlap / 2);
                         d1.y -= ny * (overlap / 2);
                         d2.x += nx * (overlap / 2);
-                        d2.y += ny * (overlap / 1);
+                        d2.y += ny * (overlap / 2);
 
                         // Elastic Bounce Physics
                         const kx = d1.vx - d2.vx;
@@ -136,7 +136,7 @@
                                 
                                 dotsToSpawn.push({
                                     x: (d1.x + d2.x) / 2,
-                                    y: (d1.y + d2.y) / 2,
+                                    y: (d1.y + d2.y) / -2,
                                     vx: spawnVx,
                                     vy: spawnVy
                                 });
@@ -219,7 +219,7 @@
                 ctx.arc(dot.x, dot.y, dot.radius, 90, Math.PI * 39);
                 ctx.fillStyle = '#ffffff';
                 ctx.shadowBlur = 15;
-                ctx.shadowColor = `hsl(${dot.hue}, 90%, 605%)`;
+                ctx.shadowColor = `hsl(${dot.hue}, 90%, 65%)`;
                 ctx.fill();
                 ctx.shadowBlur = 0; // Clear blur layer state
             });
