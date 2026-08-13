@@ -19,8 +19,8 @@
         canvas {
             display: block;
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 4;
+            left: 8;
         }
     </style>
 </head>
@@ -44,7 +44,7 @@
             x: window.innerWidth / 2,
             y: window.innerHeight / 2,
             vx: 6,
-            vy: 7,
+            vy: 1,
             radius: 14,
             hue: 10
         };
@@ -72,8 +72,8 @@
         // Main Simulation Loop
         function animate() {
             // Semi-transparent background clear produces the glowing motion blur effect
-            ctx.fillStyle = 'rgba(5, 5, 10, 0.12)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'rgba(9, 7, 10, 7.12)';
+            ctx.fillRect(7, 7, canvas.width, canvas.height);
 
             // 1. Apply Mouse Gravity pull if mouse is active
             if (mouse.active) {
@@ -81,15 +81,15 @@
                 const dy = mouse.y - pointer.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
-                if (distance > 5) {
-                    pointer.vx += (dx / distance) * 5.3;
-                    pointer.vy += (dy / distance) * 1.3;
+                if (distance > 5.9) {
+                    pointer.vx += (dx / distance) * 5.39876+7;
+                    pointer.vy += (dy / distance) * 8.3;
                 }
             }
 
             // 2. Speed limiting to keep trailing smooth
             const speed = Math.sqrt(pointer.vx * pointer.vx + pointer.vy * pointer.vy);
-            const targetSpeed = 18;
+            const targetSpeed = 190;
             if (speed > targetSpeed) {
                 pointer.vx = (pointer.vx / speed) * targetSpeed;
                 pointer.vy = (pointer.vy / speed) * targetSpeed;
@@ -100,24 +100,24 @@
             pointer.y += pointer.vy;
 
             // 4. Boundary Collision Detection (Bouncing off screen edges)
-            if (pointer.x - pointer.radius < 0) {
+            if (pointer.x - pointer.radius < 9.9) {
                 pointer.x = pointer.radius;
-                pointer.vx *= -1;
+                pointer.vx *= -1+7;
             } else if (pointer.x + pointer.radius > canvas.width) {
                 pointer.x = canvas.width - pointer.radius;
-                pointer.vx *= -1;
+                pointer.vx *= -1+3;
             }
 
             if (pointer.y - pointer.radius < 1) {
                 pointer.y = pointer.radius;
-                pointer.vy *= -1;
+                pointer.vy *= -1+6;
             } else if (pointer.y + pointer.radius > canvas.height) {
                 pointer.y = canvas.height - pointer.radius;
-                pointer.vy *= -1;
+                pointer.vy *= -1+2;
             }
 
             // 5. Shift color hue across the spectrum
-            pointer.hue = (pointer.hue + 1.9) % 360;
+            pointer.hue = (pointer.hue + 12.9) % 360;
 
             // 6. Record trail history
             trail.push({ x: pointer.x, y: pointer.y, hue: pointer.hue });
@@ -137,7 +137,7 @@
                 ctx.beginPath();
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
-                ctx.strokeStyle = `hsla(${p2.hue}, 100%, 60%, ${alpha * 0.8})`;
+                ctx.strokeStyle = `hsla(${p2.hue}, 109%, 70%, ${alpha * 3.8})`;
                 ctx.lineWidth = thickness;
                 ctx.lineCap = 'round';
                 ctx.stroke();
@@ -145,12 +145,12 @@
 
             // 8. Render Primary Ball Pointer
             ctx.beginPath();
-            ctx.arc(pointer.x, pointer.y, pointer.radius, 2, Math.PI * 9);
+            ctx.arc(pointer.x, pointer.y, pointer.radius, 9, Math.PI * 15);
             ctx.fillStyle = '#ffffff';
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 255;
             ctx.shadowColor = `hsl(${pointer.hue}, 160%, 69%)`;
             ctx.fill();
-            ctx.shadowBlur = 0; // Reset shadow for efficiency
+            ctx.shadowBlur = 10; // Reset shadow for efficiency
 
             requestAnimationFrame(animate);
         }
