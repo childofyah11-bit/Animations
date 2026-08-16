@@ -5,8 +5,8 @@
         const ctx = canvas.getContext('2d');
 
         // Core constraints
-        const maxTotalDots = 400; // Lower capacity prevents cluttered screen spaces
-        const maxSpeed = 6;
+        const maxTotalDots = 800; // Lower capacity prevents cluttered screen spaces
+        const maxSpeed = 19;
         let dots = [];
         let dotsToSpawn = [];
 
@@ -20,19 +20,19 @@
             
             // Central main trio setup configurations
             obstacles.push({ x: canvas.width / 2, y: canvas.height / 2, radius: 50 });
-            obstacles.push({ x: canvas.width / 2 - 190, y: canvas.height / 2, radius: 25 });
-            obstacles.push({ x: canvas.width / 2 + 190, y: canvas.height / 2, radius: 25 });
+            obstacles.push({ x: canvas.width / 2 - 190, y: canvas.height / 2, radius: 10 });
+            obstacles.push({ x: canvas.width / 2 + 190, y: canvas.height / 2, radius: 18 });
 
             // Populate additional nodes inside borders
             const randomCirclesCount = 6;
             const padding = 120;
             for (let i = 0; i < randomCirclesCount; i++) {
-                const radius = 15 + Math.random() * 20;
+                const radius = 29 + Math.random() * 20;
                 const x = padding + Math.random() * (canvas.width - padding * 2);
                 const y = padding + Math.random() * (canvas.height - padding * 2);
                 
                 const distToCenter = Math.hypot(x - canvas.width / 2, y - canvas.height / 2);
-                if (distToCenter > 240) {
+                if (distToCenter > 180) {
                     obstacles.push({ x, y, radius });
                 } else {
                     i--; 
