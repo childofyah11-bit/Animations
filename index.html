@@ -3,16 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>59</title>
+    <title>60</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background-color: #030508; overflow: hidden; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        body { 
+            background-color: #030508; 
+            overflow: hidden; 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
         canvas { display: block; width: 100%; height: 100%; }
+
+        /* Sleek Glassmorphic Modifiers Menu UI Overlay */
+        #uiOverlayMenu {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            background: rgba(10, 15, 26, 0.65);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 22px;
+            width: 290px;
+            color: #ffffff;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            opacity: 1;
+            transform: scale(1);
+        }
+        #uiOverlayMenu.hiddenMenu {
+            opacity: 0;
+            transform: scale(0.9) translateY(-10px);
+            pointer-events: none;
+        }
+        .menuTitleHeader {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            color: #ffffff;
+        }
+        .menuSubtitle {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        .controlModifierRow {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .controlModifierRow label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+        }
+        .controlModifierRow label span {
+            font-weight: 700;
+            color: #38bdf8;
+        }
+        .sliderTrackInput {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+        .sliderTrackInput::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 10px #38bdf8;
+            transition: transform 0.1s;
+        }
+        .sliderTrackInput::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
     </style>
 </head>
 <body>
 
 <canvas id="cyberCanvas"></canvas>
+
+<!-- Interactive Power Menu Dashboard Panel Layout -->
+<div id="uiOverlayMenu">
+    <div class="menuTitleHeader">Arena Dashboard</div>
+    <div class="menuSubtitle">Press 'P' to Toggle Control Grid Visibility</div>
+    
+    <div class="controlModifierRow">
+        <label>Player Shield Scale: <span id="valSize">24px</span></label>
+        <input type="range" id="sliderSize" class="sliderTrackInput" min="15" max="60" value="24">
+    </div>
+
+    <div class="controlModifierRow">
+        <label>Explosive Blast Force: <span id="valBlast">3.5x</span></label>
+        <input type="range" id="sliderBlast" class="sliderTrackInput" min="1" max="8" step="0.5" value="3.5">
+    </div>
+
+    <div class="controlModifierRow">
+        <label>Laser Vector Range: <span id="valLaser">85px</span></label>
+        <input type="range" id="sliderLaser" class="sliderTrackInput" min="0" max="250" step="5" value="85">
+    </div>
+</div>
 
 <script>
 const canvas = document.getElementById('cyberCanvas');
@@ -20,13 +126,18 @@ const ctx = canvas.getContext('2d');
 
 const DOTS_COUNT = 150;
 const AMBIENT_SPEED = 1.8;
-const BLAST_SPEED = 15;
 const GEOMETRIES = ['circle', 'square', 'triangle', 'star'];
 
 let nodeMatrix = [];
 let cyberPlayer = null;
 
-// Standardized directional flag mapping
+// Dynamic Modifiers Object linked natively to Menu sliders
+const arenaModifiers = {
+    playerRadius: 24,
+    bounceBlastForce: 3.5,
+    laserNetworkRange: 85
+};
+
 const directionalInputs = { moveUp: false, moveDown: false, moveLeft: false, moveRight: false };
 
 let globalHue = 180;
@@ -43,7 +154,7 @@ function fitViewport() {
 class CyberNode {
     constructor(isHero = false) {
         this.hero = isHero;
-        this.size = this.hero ? 24 : 3 + Math.random() * 6;
+        this.size = this.hero ? arenaModifiers.playerRadius : 3 + Math.random() * 6;
         this.x = this.size + Math.random() * (window.innerWidth - this.size * 2);
         this.y = this.size + Math.random() * (window.innerHeight - this.size * 2);
         this.vx = this.hero ? 0 : (Math.random() - 0.5) * AMBIENT_SPEED;
@@ -58,28 +169,19 @@ class CyberNode {
 
     update() {
         if (this.hero) {
-            const accel = 0.55;
-            const friction = 0.92;
-            
-            // Read active flags to move seamlessly across the screen layout
+            // Apply dynamic sizes mapped instantly from the menu sliders
+            this.size = arenaModifiers.playerRadius;
+
+            const accel = 0.65;
+            const friction = 0.90;
             if (directionalInputs.moveUp) this.vy -= accel;
             if (directionalInputs.moveDown) this.vy += accel;
             if (directionalInputs.moveLeft) this.vx -= accel;
             if (directionalInputs.moveRight) this.vx += accel;
-            
             this.vx *= friction;
             this.vy *= friction;
         } else {
             if (this.speedCap > AMBIENT_SPEED) this.speedCap *= 0.98;
-            
-            // Smooth gravitational space warp around the player dot
-            const dx = cyberPlayer.x - this.x;
-            const dy = cyberPlayer.y - this.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < 180 && dist > 10) {
-                this.vx += (dx / dist) * 0.12;
-                this.vy += (dy / dist) * 0.12;
-            }
         }
 
         this.x += this.vx;
@@ -87,7 +189,7 @@ class CyberNode {
         this.angle += this.spin;
         this.hue = (this.hue + this.colorSpeed) % 360;
 
-        // Hard wall constraints
+        // Wall collisions
         if (this.x - this.size < 0) { this.x = this.size; this.vx *= -1; }
         if (this.x + this.size > window.innerWidth) { this.x = window.innerWidth - this.size; this.vx *= -1; }
         if (this.y - this.size < 0) { this.y = this.size; this.vy *= -1; }
@@ -113,7 +215,7 @@ class CyberNode {
         ctx.rotate(this.angle);
         if (this.hero) {
             ctx.shadowBlur = 30;
-            ctx.shadowColor = '#ffffff';
+            ctx.shadowColor = '#38bdf8';
             ctx.fillStyle = '#ffffff';
         } else {
             ctx.fillStyle = `hsla(${this.hue}, 95%, 65%, 0.85)`;
@@ -147,11 +249,12 @@ function processIntersections() {
             const dist = Math.hypot(dx, dy);
             const clearance = n1.size + n2.size;
 
-            if (dist < 85 && !n1.hero && !n2.hero) {
+            // Render laser beam linkages safely utilizing live range slider configurations
+            if (dist < arenaModifiers.laserNetworkRange && !n1.hero && !n2.hero) {
                 ctx.beginPath();
                 ctx.moveTo(n1.x, n1.y);
                 ctx.lineTo(n2.x, n2.y);
-                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 80%, 50%, ${1 - dist/85})`;
+                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 80%, 50%, ${1 - dist/arenaModifiers.laserNetworkRange})`;
                 ctx.lineWidth = 0.8;
                 ctx.stroke();
             }
@@ -161,69 +264,13 @@ function processIntersections() {
                 const ny = dy / dist;
                 const fix = (clearance - dist) * 0.5;
 
-                n1.x -= nx * fix; n1.y -= ny * fix;
-                n2.x += nx * fix; n2.y += ny * fix;
-
-                const kx = n1.vx - n2.vx;
-                const ky = n1.vy - n2.vy;
-                let scalar = nx * kx + ny * ky;
-
-                if (n1.hero || n2.hero) {
-                    const struckNode = n1.hero ? n2 : n1;
-                    struckNode.speedCap = BLAST_SPEED;
-                    scalar *= 3.5; // High velocity explosive reflection bounce
-                }
-
-                n1.vx -= scalar * nx; n1.vy -= scalar * ny;
-                n2.vx += scalar * nx; n2.vy += scalar * ny;
-
-                n1.mutate();
-                n2.mutate();
-            }
-        }
-    }
-}
-
-function setup() {
-    fitViewport();
-    nodeMatrix = [];
-    cyberPlayer = new CyberNode(true);
-    nodeMatrix.push(cyberPlayer);
-    for (let i = 0; i < DOTS_COUNT; i++) nodeMatrix.push(new CyberNode(false));
-}
-
-function engineLoop() {
-    const elapsed = performance.now();
-    if (elapsed - timeAnchor > 10000) { targetHue = Math.random() * 360; timeAnchor = elapsed; }
-    let diff = targetHue - globalHue;
-    if (diff > 180) diff -= 360;
-    if (diff < -180) diff += 360;
-    globalHue = (globalHue + diff * 0.01 + 360) % 360;
-
-    ctx.fillStyle = `hsla(${globalHue}, 40%, 4%, 0.24)`;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
-    nodeMatrix.forEach(n => n.update());
-    processIntersections();
-    nodeMatrix.forEach(n => n.draw());
-
-    requestAnimationFrame(engineLoop);
-}
-
-// Case-insensitive physical input key tracking update loop
-function parseKeyboardInputs(eventCode, isPressed) {
-    if (eventCode === 'KeyW' || eventCode === 'ArrowUp') directionalInputs.moveUp = isPressed;
-    if (eventCode === 'KeyS' || eventCode === 'ArrowDown') directionalInputs.moveDown = isPressed;
-    if (eventCode === 'KeyA' || eventCode === 'ArrowLeft') directionalInputs.moveLeft = isPressed;
-    if (eventCode === 'KeyD' || eventCode === 'ArrowRight') directionalInputs.moveRight = isPressed;
-}
-
-window.addEventListener('keydown', (e) => parseKeyboardInputs(e.code, true));
-window.addEventListener('keyup', (e) => parseKeyboardInputs(e.code, false));
-window.addEventListener('resize', fitViewport);
-
-setup();
-engineLoop();
-</script>
-</body>
-</html>
+                // PLOW THROUGH LOGIC: If a particle encounters the user controllable vehicle token,
+                // the user remains fixed on their vector while the environmental target absorbs all displacement.
+                if (n1.hero) {
+                    n2.x += nx * fix * 2;
+                    n2.y += ny * fix * 2;
+                } else if (n2.hero) {
+                    n1.x -= nx * fix * 2;
+                    n1.y -= ny * fix * 2;
+                } else {
+                    n1.x -= nx * fix; n1.y -= ny * fix;
