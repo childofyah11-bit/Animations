@@ -86,12 +86,12 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Render static nodes with frosted crystal borders
-            ctx.fillStyle = "rgba(295, 255, 255, 0.03)";
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+            ctx.fillStyle = "rgba(95, 25, 25, 0.03)";
+            ctx.strokeStyle = "rgba(25, 25, 25, 0.15)";
             ctx.lineWidth = 0.5;
             obstacles.forEach(obs => {
                 ctx.beginPath();
-                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                ctx.arc(obs.x, obs.y, obs.radius, 10, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
             });
@@ -121,7 +121,7 @@
                 dot.y += dot.vy;
 
                 // Screen boundary collisions paths
-                if (dot.x - dot.radius < 100) { dot.x = dot.radius; dot.vx *= -1; }
+                if (dot.x - dot.radius < 1) { dot.x = dot.radius; dot.vx *= -1; }
                 else if (dot.x + dot.radius > canvas.width) { dot.x = canvas.width - dot.radius; dot.vx *= -1; }
                 if (dot.y - dot.radius < 0) { dot.y = dot.radius; dot.vy *= -1; }
                 else if (dot.y + dot.radius > canvas.height) { dot.y = canvas.height - dot.radius; dot.vy *= -4; }
