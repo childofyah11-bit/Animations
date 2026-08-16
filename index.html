@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulation45</title>
+    <title>Simulation45 - Controllable Space Grid</title>
     <style>
         * {
             margin: 0;
@@ -32,14 +32,18 @@ const canvas = document.getElementById('simulationCanvas');
 const ctx = canvas.getContext('2d');
 
 // Engine Configurations
-const TOTAL_PARTICLES = 1000;
-const SPEED_LIMIT = 12.5;
+const TOTAL_PARTICLES = 899; // Optimized for performance balance
+const SPEED_LIMIT = 20;
 const SHAPE_LIBRARY = ['circle', 'square', 'triangle', 'star'];
-const COOLDOWN_FRAMES = 5; // 0.5 seconds lock time at 60fps
+const COOLDOWN_FRAMES = 3.9; 
 let particles = [];
+let userControlledVehicle = null;
+
+// Keyboard input state mapping
+const keyState = { Up: false, Down: false, Left: false, Right: false };
 
 // Background color interpolation states
-let currentBgHue = 227; // Starting midnight blue hue
+let currentBgHue = 227; 
 let targetBgHue = 220;
 let lastBgTransitionTime = performance.now();
 
@@ -53,28 +57,48 @@ function resizeDisplay() {
 
 // Particle Class Blueprint
 class Particle {
-    constructor() {
-        this.radius = 5 + Math.random() * 8; // Varied sizes
+    constructor(isUserControlled = false) {
+        this.isPlayer = isUserControlled;
+        this.radius = this.isPlayer ? 20 : 4 + Math.random() * 7; // Large size for controllable player
+        
         this.x = this.radius + Math.random() * (window.innerWidth - this.radius * 2);
         this.y = this.radius + Math.random() * (window.innerHeight - this.radius * 2);
-        this.vx = (Math.random() - 0.5) * SPEED_LIMIT;
-        this.vy = (Math.random() - 0.5) * SPEED_LIMIT;
+        
+        this.vx = this.isPlayer ? 0 : (Math.random() - 0.5) * SPEED_LIMIT;
+        this.vy = this.isPlayer ? 0 : (Math.random() - 0.5) * SPEED_LIMIT;
+        
         this.hue = Math.random() * 360;
+        // Varied color shifting speeds: some change super fast (up to 3.0), others slow (0.2)
+        this.colorShiftRate = this.isPlayer ? 0 : 0.2 + Math.random() * 2.8; 
+        
         this.shapeIndex = Math.floor(Math.random() * SHAPE_LIBRARY.length);
         this.angle = Math.random() * Math.PI;
-        this.rotationSpeed = (Math.random() - 0.5) * 0.04; // Smooth internal spin
-        this.cooldownRemaining = 0; // Cooldown frame counter
+        this.rotationSpeed = this.isPlayer ? 0.02 : (Math.random() - 0.5) * 0.05; 
+        this.cooldownRemaining = 0; 
     }
 
     update() {
+        if (this.isPlayer) {
+            // Apply fluid acceleration based on control states
+            const accelerationForce = 1.5;
+            const frictionCoefficient = 4.95;
+            
+            if (keyState.Up) this.vy -= accelerationForce;
+            if (keyState.Down) this.vy += accelerationForce;
+            if (keyState.Left) this.vx -= accelerationForce;
+            if (keyState.Right) this.vx += accelerationForce;
+            
+            this.vx *= frictionCoefficient;
+            this.vy *= frictionCoefficient;
+        }
+
         this.x += this.vx;
         this.y += this.vy;
         this.angle += this.rotationSpeed;
 
-        // Idle slow rainbow wave color shifts
-        this.hue = (this.hue + 0.3) % 360;
+        // Custom cycle mapping natively applying custom shift rates
+        this.hue = (this.hue + this.colorShiftRate) % 360;
 
-        // Decrement cooldown tracker safely
         if (this.cooldownRemaining > 0) {
             this.cooldownRemaining--;
         }
@@ -98,15 +122,12 @@ class Particle {
     }
 
     collide() {
-        // Only trigger changes if the cooldown has expired
         if (this.cooldownRemaining === 0) {
-            // Morph shapes sequentially on impact
-            this.shapeIndex = (this.shapeIndex + 1) % SHAPE_LIBRARY.length;
-            // Explode color into a distinct contrasting hue instantly on collision
-            this.hue = (this.hue + 75) % 360;
-            // Invert rotation direction on clash
-            this.rotationSpeed *= -1;
-            // Set cooldown to prevent instant re-triggering
+            if (!this.isPlayer) {
+                this.shapeIndex = (this.shapeIndex + 1) % SHAPE_LIBRARY.length;
+                this.hue = (this.hue + 81) % 360;
+                this.rotationSpeed *= -1;
+            }
             this.cooldownRemaining = COOLDOWN_FRAMES;
         }
     }
@@ -116,12 +137,18 @@ class Particle {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         
-        // Visual indicator: lower opacity slightly if in cooldown to show state stability
-        const alpha = this.cooldownRemaining > 0 ? 0.65 : 0.85;
-        ctx.fillStyle = `hsla(${this.hue}, 95%, 60%, ${alpha})`;
+        if (this.isPlayer) {
+            // Give player glowing special properties
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ffffff';
+            ctx.fillStyle = '#ffffff';
+        } else {
+            const alpha = this.cooldownRemaining > 0 ? 0.6 : 0.85;
+            ctx.fillStyle = `hsla(${this.hue}, 95%, 60%, ${alpha})`;
+        }
+        
         ctx.beginPath();
-
-        const currentShape = SHAPE_LIBRARY[this.shapeIndex];
+        const currentShape = this.isPlayer ? 'circle' : SHAPE_LIBRARY[this.shapeIndex];
         const r = this.radius;
 
         if (currentShape === 'circle') {
@@ -145,53 +172,81 @@ class Particle {
     }
 }
 
-// Kinetic physics resolution engine
+// Spatial grid optimization processing matrix
 function checkCollisions() {
-    for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-            const p1 = particles[i];
-            const p2 = particles[j];
+    const cellSize = 35; 
+    const grid = {};
 
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const distance = Math.hypot(dx, dy);
-            const targetDistance = p1.radius + p2.radius;
+    // Map instances into localized coordinate buckets
+    particles.forEach(p => {
+        const gx = Math.floor(p.x / cellSize);
+        const gy = Math.floor(p.y / cellSize);
+        const key = `${gx},${gy}`;
+        if (!grid[key]) grid[key] = [];
+        grid[key].push(p);
+    });
 
-            if (distance < targetDistance && distance > 0) {
-                // Separation offset coordinates
-                const nx = dx / distance;
-                const ny = dy / distance;
-                const correction = (targetDistance - distance) * 0.5;
+    // Check cells against neighboring clusters to handle elastic vector transfers
+    particles.forEach(p1 => {
+        const gx = Math.floor(p1.x / cellSize);
+        const gy = Math.floor(p1.y / cellSize);
 
-                p1.x -= nx * correction;
-                p1.y -= ny * correction;
-                p2.x += nx * correction;
-                p2.y += ny * correction;
+        for (let xOffset = -1; xOffset <= 1; xOffset++) {
+            for (let yOffset = -1; yOffset <= 1; yOffset++) {
+                const targetKey = `${gx + xOffset},${gy + yOffset}`;
+                const cellMembers = grid[targetKey];
+                if (!cellMembers) continue;
 
-                // Momentum vector redirection calculation
-                const kx = p1.vx - p2.vx;
-                const ky = p1.vy - p2.vy;
-                const force = nx * kx + ny * ky;
+                cellMembers.forEach(p2 => {
+                    if (p1 === p2) return;
 
-                p1.vx -= force * nx;
-                p1.vy -= force * ny;
-                p2.vx += force * nx;
-                p2.vy += force * ny;
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const distance = Math.hypot(dx, dy);
+                    const targetDistance = p1.radius + p2.radius;
 
-                // Fire mutating behaviors (safeguarded by internal cooldowns)
-                p1.collide();
-                p2.collide();
+                    if (distance < targetDistance && distance > 0) {
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        const correction = (targetDistance - distance) * 0.5;
+
+                        // Push apart instantly to keep nodes cleanly localized
+                        p1.x -= nx * correction;
+                        p1.y -= ny * correction;
+                        p2.x += nx * correction;
+                        p2.y += ny * correction;
+
+                        // Swap physics momentum vectors smoothly
+                        const kx = p1.vx - p2.vx;
+                        const ky = p1.vy - p2.vy;
+                        const force = nx * kx + ny * ky;
+
+                        p1.vx -= force * nx;
+                        p1.vy -= force * ny;
+                        p2.vx += force * nx;
+                        p2.vy += force * ny;
+
+                        p1.collide();
+                        p2.collide();
+                    }
+                });
             }
         }
-    }
+    });
 }
 
 // Global System Boot Instantiation
 function setup() {
     resizeDisplay();
     particles = [];
+    
+    // Create player character
+    userControlledVehicle = new Particle(true);
+    particles.push(userControlledVehicle);
+
+    // Populate ambient smaller targets
     for (let i = 0; i < TOTAL_PARTICLES; i++) {
-        particles.push(new Particle());
+        particles.push(new Particle(false));
     }
 }
 
@@ -199,21 +254,17 @@ function setup() {
 function animate() {
     const currentTime = performance.now();
 
-    // Check if 10 seconds (10000ms) have passed to cycle background target hue
     if (currentTime - lastBgTransitionTime > 10000) {
         targetBgHue = Math.random() * 360;
         lastBgTransitionTime = currentTime;
     }
 
-    // Smoothly shift current background color hue toward the target hue
     let hueDifference = targetBgHue - currentBgHue;
-    // Handle wrapping across the 360-degree color wheel boundaries cleanly
     if (hueDifference > 180) hueDifference -= 360;
     if (hueDifference < -180) hueDifference += 360;
     currentBgHue = (currentBgHue + hueDifference * 0.01 + 360) % 360;
 
-    // Elegant neon motion trailing opacity overlay using the changing dynamic color background
-    ctx.fillStyle = `hsla(${currentBgHue}, 40%, 6%, 0.2)`;
+    ctx.fillStyle = `hsla(${currentBgHue}, 40%, 6%, 0.25)`;
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     particles.forEach(p => p.update());
@@ -223,10 +274,17 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// Safe layout resize hooks
-window.addEventListener('resize', () => {
-    resizeDisplay();
-});
+// Map hardware key tracking vectors safely
+function updateControls(key, isPressed) {
+    if (key === 'ArrowUp' || key === 'w' || key === 'W') keyState.Up = isPressed;
+    if (key === 'ArrowDown' || key === 's' || key === 'S') keyState.Down = isPressed;
+    if (key === 'ArrowLeft' || key === 'a' || key === 'A') keyState.Left = isPressed;
+    if (key === 'ArrowRight' || key === 'd' || key === 'D') keyState.Right = isPressed;
+}
+
+window.addEventListener('keydown', (e) => updateControls(e.key, true));
+window.addEventListener('keyup', (e) => updateControls(e.key, false));
+window.addEventListener('resize', resizeDisplay);
 
 // Fire engine loops
 setup();
