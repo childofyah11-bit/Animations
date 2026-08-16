@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulation my 33rd model</title>
+  <title>Simulation  Model  37th </title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      background-color: #0d1117;
+      background-color: #0c0f12;
     }
     canvas {
       display: block;
@@ -19,280 +19,228 @@
 </head>
 <body>
 
-<canvas id="simCanvas"></canvas>
+<canvas id="simulationCanvas"></canvas>
 
 <script>
-  const canvas = document.getElementById('simCanvas');
+  const canvas = document.getElementById('simulationCanvas');
   const ctx = canvas.getContext('2d');
 
-  // Core constraints - Balanced for high performance interactive collision arrays
-  const maxTotalDots = 450;
-  const maxSpeed = 6;
-  let dots = [];
-  let obstacles = [];
+  // Architecture Configurations
+  const totalParticles = 400;
+  const maxVelocityLimit = 5;
+  let particles = [];
+  let rigidObstacles = [];
 
-  // Available interactive geometry shapes
-  const shapes = ['circle', 'square', 'triangle', 'star'];
+  // Available transform shapes map
+  const geometryShapes = ['circle', 'square', 'triangle', 'star'];
 
-  // Interactive cursor tracking
-  const mouse = { x: 0, y: 0, active: false };
+  // Global Interactive Cursor Tracker
+  const userCursor = { x: 0, y: 0, active: false };
 
-  // Handle high-DPI/Retina screens seamlessly
-  function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    ctx.scale(dpr, dpr);
+  // Set up crisp rendering context boundaries across high-DPI panels
+  function configureDisplayContext() {
+    const pixelRatioScale = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * pixelRatioScale;
+    canvas.height = window.innerHeight * pixelRatioScale;
+    ctx.scale(pixelRatioScale, pixelRatioScale);
     
-    // Re-generate layout coordinates on window change
-    generateObstacles();
-    generateDots();
+    initializeStaticObstacles();
+    populateParticleMatrix();
   }
 
-  // Generate static obstacles distributed safely across the screen layout
-  function generateObstacles() {
-    obstacles = [];
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+  // Generate static anchors safely mapped inside viewport limits
+  function initializeStaticObstacles() {
+    rigidObstacles = [];
+    const layoutW = window.innerWidth;
+    const layoutH = window.innerHeight;
 
-    // Central main trio setup configurations
-    obstacles.push({ x: width / 2, y: height / 2, radius: 60 });
-    obstacles.push({ x: width / 2 - 190, y: height / 2, radius: 30 });
-    obstacles.push({ x: width / 2 + 190, y: height / 2, radius: 40 });
+    // Anchor configurations
+    rigidObstacles.push({ x: layoutW / 2, y: layoutH / 2, sizeRadius: 65 });
+    rigidObstacles.push({ x: layoutW / 2 - 200, y: layoutH / 2, sizeRadius: 35 });
+    rigidObstacles.push({ x: layoutW / 2 + 200, y: layoutH / 2, sizeRadius: 45 });
 
-    // Populate additional random nodes safely inside borders
-    const randomCirclesCount = 6;
-    const padding = 120;
+    const extraNodesCount = 5;
+    const boundarySafetyPadding = 130;
 
-    for (let i = 0; i < randomCirclesCount; i++) {
-      const radius = 15 + Math.random() * 25; 
-      const x = padding + Math.random() * (width - padding * 2);
-      const y = padding + Math.random() * (height - padding * 2);
+    for (let i = 0; i < extraNodesCount; i++) {
+      const generatedRadius = 15 + Math.random() * 25;
+      const posX = boundarySafetyPadding + Math.random() * (layoutW - boundarySafetyPadding * 2);
+      const posY = boundarySafetyPadding + Math.random() * (layoutH - boundarySafetyPadding * 2);
 
-      const distToCenter = Math.hypot(x - width / 2, y - height / 2);
-      if (distToCenter > 220) {
-        obstacles.push({ x, y, radius });
+      // Verify node positions do not intersect the main cluster space coordinates
+      if (Math.hypot(posX - layoutW / 2, posY - layoutH / 2) > 230) {
+        rigidObstacles.push({ x: posX, y: posY, sizeRadius: generatedRadius });
       }
     }
   }
 
-  // Populate interactive particles/dots
-  function generateDots() {
-    dots = [];
-    for (let i = 0; i < maxTotalDots; i++) {
-      dots.push({
+  // Populate primary tracking metrics
+  function populateParticleMatrix() {
+    particles = [];
+    for (let i = 0; i < totalParticles; i++) {
+      particles.push({
         x: Math.random() * window.innerWidth,
         y: Math.random() * window.innerHeight,
-        vx: (Math.random() - 0.5) * maxSpeed,
-        vy: (Math.random() - 0.5) * maxSpeed,
-        radius: 4 + Math.random() * 4, // Slightly larger sizes so shape updates look stunning
-        hue: Math.random() * 360, 
-        colorSpeed: 3 + Math.random() * 10, // Randomized frequency color shift speeds
-        shapeIndex: Math.floor(Math.random() * shapes.length),
-        color: '' 
+        vx: (Math.random() - 0.5) * maxVelocityLimit,
+        vy: (Math.random() - 0.5) * maxVelocityLimit,
+        dimensionRadius: 5 + Math.random() * 4,
+        hueValue: Math.random() * 360,
+        hueFrequencySpeed: 4 + Math.random() * 12, // Distinct speed tracker frequency assignments
+        shapeTypeIndex: Math.floor(Math.random() * geometryShapes.length)
       });
     }
   }
 
-  // Helper routine to swap current rendering shape type instantly on hits
-  function changeShape(dot) {
-    dot.shapeIndex = (dot.shapeIndex + 1) % shapes.length;
+  // Rotate shape sequence assignment cleanly upon certified collisions
+  function triggersShapeMutation(targetParticle) {
+    targetParticle.shapeTypeIndex = (targetParticle.shapeTypeIndex + 1) % geometryShapes.length;
   }
 
-  // Interactive mouse tracking events
-  window.addEventListener('mousemove', (e) => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-    mouse.active = true;
+  // Device context hook bindings
+  window.addEventListener('mousemove', (event) => {
+    userCursor.x = event.clientX;
+    userCursor.y = event.clientY;
+    userCursor.active = true;
   });
 
   window.addEventListener('mouseleave', () => {
-    mouse.active = false;
+    userCursor.active = false;
   });
 
-  // Core Physics and Rendering Loop
-  function animate() {
-    // Semi-transparent overlay layer leaves smooth trailing paths behind elements
-    ctx.fillStyle = 'rgba(13, 17, 23, 0.15)'; 
+  window.addEventListener('resize', configureDisplayContext);
+
+  // Engine loop processing routine
+  function executionCycle() {
+    // Draws semi-opaque layer to trail color metrics cleanly
+    ctx.fillStyle = 'rgba(12, 15, 18, 0.16)';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-    // 1. Draw static obstacles with beautiful styling
-    obstacles.forEach(obs => {
+    // Render fixed structural buffers
+    rigidObstacles.forEach(obstacleNode => {
       ctx.beginPath();
-      ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.arc(obstacleNode.x, obstacleNode.y, obstacleNode.sizeRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 2;
       ctx.fill();
       ctx.stroke();
     });
 
-    // 2. Perform Grid-Based Particle Optimization Loop (Handles heavy ball-to-ball collisions cleanly)
-    const cellSize = 40;
-    const grid = {};
+    // Partition tracking space instantly using dynamic indexing keys
+    const cellBucketSize = 45;
+    const optimizationGrid = {};
 
-    dots.forEach(dot => {
-      // Step physics positioning coordinates forward
-      dot.x += dot.vx;
-      dot.y += dot.vy;
+    particles.forEach(element => {
+      element.x += element.vx;
+      element.y += element.vy;
 
-      // Update rainbow hue variables seamlessly 
-      dot.hue = (dot.hue + dot.colorSpeed) % 360;
-      dot.color = `hsl(${dot.hue}, 95%, 65%)`;
+      // Cycle multi-frequency color maps natively
+      element.hueValue = (element.hueValue + element.hueFrequencySpeed) % 360;
 
-      // Wall Collision verification physics logic bounds
-      let wallHit = false;
-      if (dot.x - dot.radius < 0) { dot.x = dot.radius; dot.vx *= -1; wallHit = true; }
-      if (dot.x + dot.radius > window.innerWidth) { dot.x = window.innerWidth - dot.radius; dot.vx *= -1; wallHit = true; }
-      if (dot.y - dot.radius < 0) { dot.y = dot.radius; dot.vy *= -1; wallHit = true; }
-      if (dot.y + dot.radius > window.innerHeight) { dot.y = window.innerHeight - dot.radius; dot.vy *= -1; wallHit = true; }
+      // Outer boundary wall physics bounce trackers
+      let boundaryIntersectionOccurred = false;
+      if (element.x - element.dimensionRadius < 0) { 
+        element.x = element.dimensionRadius; element.vx *= -1; boundaryIntersectionOccurred = true; 
+      }
+      if (element.x + element.dimensionRadius > window.innerWidth) { 
+        element.x = window.innerWidth - element.dimensionRadius; element.vx *= -1; boundaryIntersectionOccurred = true; 
+      }
+      if (element.y - element.dimensionRadius < 0) { 
+        element.y = element.dimensionRadius; element.vy *= -1; boundaryIntersectionOccurred = true; 
+      }
+      if (element.y + element.dimensionRadius > window.innerHeight) { 
+        element.y = window.innerHeight - element.dimensionRadius; element.vy *= -1; boundaryIntersectionOccurred = true; 
+      }
+
+      if (boundaryIntersectionOccurred) {
+        triggersShapeMutation(element);
+      }
+
+      const gridKeyX = Math.floor(element.x / cellBucketSize);
+      const gridKeyY = Math.floor(element.y / cellBucketSize);
+      const compositeLookupKey = `${gridKeyX},${gridKeyY}`;
       
-      if (wallHit) changeShape(dot);
-
-      // Map positions straight into checking buckets to save computing energy
-      const cellX = Math.floor(dot.x / cellSize);
-      const cellY = Math.floor(dot.y / cellSize);
-      const cellKey = `${cellX},${cellY}`;
-      if (!grid[cellKey]) grid[cellKey] = [];
-      grid[cellKey].push(dot);
+      if (!optimizationGrid[compositeLookupKey]) {
+        optimizationGrid[compositeLookupKey] = [];
+      }
+      optimizationGrid[compositeLookupKey].push(element);
     });
 
-    // 3. Resolve Ball-on-Ball Particle Deflection Physics
-    for (let i = 0; i < dots.length; i++) {
-      const d1 = dots[i];
-      const cellX = Math.floor(d1.x / cellSize);
-      const cellY = Math.floor(d1.y / cellSize);
+    // Handle interactive object vector resolution mechanics
+    for (let indexA = 0; indexA < particles.length; indexA++) {
+      const subjectNode = particles[indexA];
+      const currentCellX = Math.floor(subjectNode.x / cellBucketSize);
+      const currentCellY = Math.floor(subjectNode.y / cellBucketSize);
 
-      // Check self cell and immediate surrounding grid slots 
-      for (let xOffset = -1; xOffset <= 1; xOffset++) {
-        for (let yOffset = -1; yOffset <= 1; yOffset++) {
-          const targetKey = `${cellX + xOffset},${cellY + yOffset}`;
-          const neighbors = grid[targetKey];
-          if (!neighbors) continue;
+      // Verify proximity using regional spatial layout scanning arrays
+      for (let offsetIndexX = -1; offsetIndexX <= 1; offsetIndexX++) {
+        for (let offsetIndexY = -1; offsetIndexY <= 1; offsetIndexY++) {
+          const areaLookupString = `${currentCellX + offsetIndexX},${currentCellY + offsetIndexY}`;
+          const localizedCandidates = optimizationGrid[areaLookupString];
+          if (!localizedCandidates) continue;
 
-          for (let j = 0; j < neighbors.length; j++) {
-            const d2 = neighbors[j];
-            if (d1 === d2) continue; // Skip matching target comparisons
+          for (let indexB = 0; indexB < localizedCandidates.length; indexB++) {
+            const compareNode = localizedCandidates[indexB];
+            if (subjectNode === compareNode) continue;
 
-            const dx = d2.x - d1.x;
-            const dy = d2.y - d1.y;
-            const dist = Math.hypot(dx, dy);
-            const minDist = d1.radius + d2.radius;
+            const coordinateDistanceX = compareNode.x - subjectNode.x;
+            const coordinateDistanceY = compareNode.y - subjectNode.y;
+            const absoluteSpanDistance = Math.hypot(coordinateDistanceX, coordinateDistanceY);
+            const minimumClearanceRequired = subjectNode.dimensionRadius + compareNode.dimensionRadius;
 
-            // Elastic bounce resolution calculation formulas
-            if (dist < minDist && dist > 0) {
-              const normalX = dx / dist;
-              const normalY = dy / dist;
+            // Compute precision elastic deflection velocities natively
+            if (absoluteSpanDistance < minimumClearanceRequired && absoluteSpanDistance > 0) {
+              const identityNormalX = coordinateDistanceX / absoluteSpanDistance;
+              const identityNormalY = coordinateDistanceY / absoluteSpanDistance;
 
-              // Separate overlapping targets slightly to fix sticky visual bugs
-              const overlap = minDist - dist;
-              d1.x -= normalX * overlap * 0.5;
-              d1.y -= normalY * overlap * 0.5;
-              d2.x += normalX * overlap * 0.5;
-              d2.y += normalY * overlap * 0.5;
+              const separationOffsetStep = (minimumClearanceRequired - absoluteSpanDistance) * 0.5;
+              subjectNode.x -= identityNormalX * separationOffsetStep;
+              subjectNode.y -= identityNormalY * separationOffsetStep;
+              compareNode.x += identityNormalX * separationOffsetStep;
+              compareNode.y += identityNormalY * separationOffsetStep;
 
-              // Calculate relative impact velocities along normal vectors
-              const kx = d1.vx - d2.vx;
-              const ky = d1.vy - d2.vy;
-              const p = 2 * (normalX * kx + normalY * ky) / 2;
+              const impactDeltaVelocityX = subjectNode.vx - compareNode.vx;
+              const impactDeltaVelocityY = subjectNode.vy - compareNode.vy;
+              const scalarVelocityMetric = (identityNormalX * impactDeltaVelocityX + identityNormalY * impactDeltaVelocityY);
 
-              // Bounce vectors away from each other
-              d1.vx -= p * normalX;
-              d1.vy -= p * normalY;
-              d2.vx += p * normalX;
-              d2.vy += p * normalY;
+              subjectNode.vx -= scalarVelocityMetric * identityNormalX;
+              subjectNode.vy -= scalarVelocityMetric * identityNormalY;
+              compareNode.vx += scalarVelocityMetric * identityNormalX;
+              compareNode.vy += scalarVelocityMetric * identityNormalY;
 
-              // Mutate geometric rendering values on successful collisions!
-              changeShape(d1);
-              changeShape(d2);
+              triggersShapeMutation(subjectNode);
+              triggersShapeMutation(compareNode);
             }
           }
         }
       }
 
-      // 4. Interact with Static Circle Obstacles
-      obstacles.forEach(obs => {
-        const dist = Math.hypot(d1.x - obs.x, d1.y - obs.y);
-        if (dist < obs.radius + d1.radius) {
-          const angle = Math.atan2(d1.y - obs.y, d1.x - obs.x);
+      // Analyze intersection vectors against static anchor objects
+      rigidObstacles.forEach(anchor => {
+        const structuralSpanDistance = Math.hypot(subjectNode.x - anchor.x, subjectNode.y - anchor.y);
+        const obstacleClearanceLimit = anchor.sizeRadius + subjectNode.dimensionRadius;
+
+        if (structuralSpanDistance < obstacleClearanceLimit) {
+          const radialAngleAngle = Math.atan2(subjectNode.y - anchor.y, subjectNode.x - anchor.x);
           
-          // Push outward slightly past boundaries to avoid getting locked in rings
-          d1.x = obs.x + Math.cos(angle) * (obs.radius + d1.radius);
-          d1.y = obs.y + Math.sin(angle) * (obs.radius + d1.radius);
+          subjectNode.x = anchor.x + Math.cos(radialAngleAngle) * obstacleClearanceLimit;
+          subjectNode.y = anchor.y + Math.sin(radialAngleAngle) * obstacleClearanceLimit;
           
-          d1.vx = Math.cos(angle) * maxSpeed;
-          d1.vy = Math.sin(angle) * maxSpeed;
+          subjectNode.vx = Math.cos(radialAngleAngle) * maxVelocityLimit;
+          subjectNode.vy = Math.sin(radialAngleAngle) * maxVelocityLimit;
           
-          changeShape(d1);
+          triggersShapeMutation(subjectNode);
         }
       });
 
-      // 5. Interact with User Cursor Attraction Field
-      if (mouse.active) {
-        const mDist = Math.hypot(d1.x - mouse.x, d1.y - mouse.y);
-        if (mDist < 150) {
-          d1.vx += (mouse.x - d1.x) * 0.002;
-          d1.vy += (mouse.y - d1.y) * 0.002;
+      // User mouse gravitational fields tracking matrix
+      if (userCursor.active) {
+        const mouseDeltaDistance = Math.hypot(subjectNode.x - userCursor.x, subjectNode.y - userCursor.y);
+        if (mouseDeltaDistance < 160) {
+          subjectNode.vx += (userCursor.x - subjectNode.x) * 0.002;
+          subjectNode.vy += (userCursor.y - subjectNode.y) * 0.002;
         }
       }
 
-      // Limit overall absolute particle movement values
-      const speed = Math.hypot(d1.vx, d1.vy);
-      if (speed > maxSpeed) {
-        d1.vx = (d1.vx / speed) * maxSpeed;
-        d1.vy = (d1.vy / speed) * maxSpeed;
-      }
-
-      // 6. Complex Vector Multi-Shape Geometry Rendering Matrix Layouts
-      ctx.fillStyle = d1.color;
-      ctx.strokeStyle = d1.color;
-      ctx.lineWidth = 1;
-      
-      const currentShape = shapes[d1.shapeIndex];
-
-      if (currentShape === 'circle') {
-        ctx.beginPath();
-        ctx.arc(d1.x, d1.y, d1.radius, 0, Math.PI * 2);
-        ctx.fill();
-      } 
-      else if (currentShape === 'square') {
-        const size = d1.radius * 2;
-        ctx.fillRect(d1.x - d1.radius, d1.y - d1.radius, size, size);
-      } 
-      else if (currentShape === 'triangle') {
-        ctx.beginPath();
-        ctx.moveTo(d1.x, d1.y - d1.radius);
-        ctx.lineTo(d1.x + d1.radius * 1.2, d1.y + d1.radius);
-        ctx.lineTo(d1.x - d1.radius * 1.2, d1.y + d1.radius);
-        ctx.closePath();
-        ctx.fill();
-      } 
-      else if (currentShape === 'star') {
-        ctx.beginPath();
-        const spikes = 5;
-        const outerRadius = d1.radius * 1.4;
-        const innerRadius = d1.radius * 0.6;
-        let rot = (Math.PI / 2) * 3;
-        let step = Math.PI / spikes;
-
-        ctx.moveTo(d1.x, d1.y - outerRadius);
-        for (let k = 0; k < spikes; k++) {
-          let cx = d1.x + Math.cos(rot) * outerRadius;
-          let cy = d1.y + Math.sin(rot) * outerRadius;
-          ctx.lineTo(cx, cy);
-          rot += step;
-
-          cx = d1.x + Math.cos(rot) * innerRadius;
-          cy = d1.y + Math.sin(rot) * innerRadius;
-          ctx.lineTo(cx, cy);
-          rot += step;
-        }
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-
-    // Smoothly call next frame repaint loop
-    requestAnimationFrame(animate);
-  }
-
+      // Velocity threshold checks
+      const operationalSpeed = Math.hypot(subjectNode.vx, subjectNode.vy);
