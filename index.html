@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyber-Grid Gravity Matrix</title>
+    <title>59</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background-color: #030508; overflow: hidden; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -25,7 +25,9 @@ const GEOMETRIES = ['circle', 'square', 'triangle', 'star'];
 
 let nodeMatrix = [];
 let cyberPlayer = null;
-const dynamicKeys = { w: false, s: false, a: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+// Standardized directional flag mapping
+const directionalInputs = { moveUp: false, moveDown: false, moveLeft: false, moveRight: false };
 
 let globalHue = 180;
 let targetHue = 180;
@@ -58,16 +60,19 @@ class CyberNode {
         if (this.hero) {
             const accel = 0.55;
             const friction = 0.92;
-            if (dynamicKeys.w || dynamicKeys.ArrowUp) this.vy -= accel;
-            if (dynamicKeys.s || dynamicKeys.ArrowDown) this.vy += accel;
-            if (dynamicKeys.a || dynamicKeys.ArrowLeft) this.vx -= accel;
-            if (dynamicKeys.d || dynamicKeys.ArrowRight) this.vx += accel;
+            
+            // Read active flags to move seamlessly across the screen layout
+            if (directionalInputs.moveUp) this.vy -= accel;
+            if (directionalInputs.moveDown) this.vy += accel;
+            if (directionalInputs.moveLeft) this.vx -= accel;
+            if (directionalInputs.moveRight) this.vx += accel;
+            
             this.vx *= friction;
             this.vy *= friction;
         } else {
             if (this.speedCap > AMBIENT_SPEED) this.speedCap *= 0.98;
             
-            // Gravity matrix pull toward player
+            // Smooth gravitational space warp around the player dot
             const dx = cyberPlayer.x - this.x;
             const dy = cyberPlayer.y - this.y;
             const dist = Math.hypot(dx, dy);
@@ -82,6 +87,7 @@ class CyberNode {
         this.angle += this.spin;
         this.hue = (this.hue + this.colorSpeed) % 360;
 
+        // Hard wall constraints
         if (this.x - this.size < 0) { this.x = this.size; this.vx *= -1; }
         if (this.x + this.size > window.innerWidth) { this.x = window.innerWidth - this.size; this.vx *= -1; }
         if (this.y - this.size < 0) { this.y = this.size; this.vy *= -1; }
@@ -141,7 +147,6 @@ function processIntersections() {
             const dist = Math.hypot(dx, dy);
             const clearance = n1.size + n2.size;
 
-            // Draw laser connections between close shapes
             if (dist < 85 && !n1.hero && !n2.hero) {
                 ctx.beginPath();
                 ctx.moveTo(n1.x, n1.y);
@@ -166,7 +171,7 @@ function processIntersections() {
                 if (n1.hero || n2.hero) {
                     const struckNode = n1.hero ? n2 : n1;
                     struckNode.speedCap = BLAST_SPEED;
-                    scalar *= 3.5; // Explosive reflection launch
+                    scalar *= 3.5; // High velocity explosive reflection bounce
                 }
 
                 n1.vx -= scalar * nx; n1.vy -= scalar * ny;
@@ -205,9 +210,16 @@ function engineLoop() {
     requestAnimationFrame(engineLoop);
 }
 
-function handleInput(key, state) { if (key in dynamicKeys) dynamicKeys[key] = state; }
-window.addEventListener('keydown', (e) => handleInput(e.key, true));
-window.addEventListener('keyup', (e) => handleInput(e.key, false));
+// Case-insensitive physical input key tracking update loop
+function parseKeyboardInputs(eventCode, isPressed) {
+    if (eventCode === 'KeyW' || eventCode === 'ArrowUp') directionalInputs.moveUp = isPressed;
+    if (eventCode === 'KeyS' || eventCode === 'ArrowDown') directionalInputs.moveDown = isPressed;
+    if (eventCode === 'KeyA' || eventCode === 'ArrowLeft') directionalInputs.moveLeft = isPressed;
+    if (eventCode === 'KeyD' || eventCode === 'ArrowRight') directionalInputs.moveRight = isPressed;
+}
+
+window.addEventListener('keydown', (e) => parseKeyboardInputs(e.code, true));
+window.addEventListener('keyup', (e) => parseKeyboardInputs(e.code, false));
 window.addEventListener('resize', fitViewport);
 
 setup();
