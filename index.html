@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulation45</title>
+    <title>Fluid Particle Arena</title>
     <style>
         * {
             margin: 0;
@@ -32,10 +32,11 @@ const canvas = document.getElementById('simulationCanvas');
 const ctx = canvas.getContext('2d');
 
 // Engine Configurations
-const TOTAL_PARTICLES = 899; // Optimized for performance balance
-const SPEED_LIMIT = 20;
+const TOTAL_PARTICLES = 600; 
+const NORMAL_SPEED_LIMIT = 3;  // Turned down ambient speed for clarity
+const EXPLOSIVE_SPEED_LIMIT = 18; // Max blast speed after hitting the player
 const SHAPE_LIBRARY = ['circle', 'square', 'triangle', 'star'];
-const COOLDOWN_FRAMES = 3.9; 
+const COOLDOWN_FRAMES = 8; 
 let particles = [];
 let userControlledVehicle = null;
 
@@ -59,29 +60,29 @@ function resizeDisplay() {
 class Particle {
     constructor(isUserControlled = false) {
         this.isPlayer = isUserControlled;
-        this.radius = this.isPlayer ? 20 : 4 + Math.random() * 7; // Large size for controllable player
+        this.radius = this.isPlayer ? 24 : 4 + Math.random() * 7; 
         
         this.x = this.radius + Math.random() * (window.innerWidth - this.radius * 2);
         this.y = this.radius + Math.random() * (window.innerHeight - this.radius * 2);
         
-        this.vx = this.isPlayer ? 0 : (Math.random() - 0.5) * SPEED_LIMIT;
-        this.vy = this.isPlayer ? 0 : (Math.random() - 0.5) * SPEED_LIMIT;
+        this.vx = this.isPlayer ? 0 : (Math.random() - 0.5) * NORMAL_SPEED_LIMIT;
+        this.vy = this.isPlayer ? 0 : (Math.random() - 0.5) * NORMAL_SPEED_LIMIT;
         
         this.hue = Math.random() * 360;
-        // Varied color shifting speeds: some change super fast (up to 3.0), others slow (0.2)
         this.colorShiftRate = this.isPlayer ? 0 : 0.2 + Math.random() * 2.8; 
         
         this.shapeIndex = Math.floor(Math.random() * SHAPE_LIBRARY.length);
         this.angle = Math.random() * Math.PI;
-        this.rotationSpeed = this.isPlayer ? 0.02 : (Math.random() - 0.5) * 0.05; 
+        this.rotationSpeed = this.isPlayer ? 0.01 : (Math.random() - 0.5) * 0.05; 
         this.cooldownRemaining = 0; 
+        this.currentMaxSpeed = NORMAL_SPEED_LIMIT; // Dynamic speed threshold per dot
     }
 
     update() {
         if (this.isPlayer) {
-            // Apply fluid acceleration based on control states
-            const accelerationForce = 1.5;
-            const frictionCoefficient = 4.95;
+            // FIXED acceleration & proper fractional decay friction matrix
+            const accelerationForce = 0.6;
+            const frictionCoefficient = 0.92;
             
             if (keyState.Up) this.vy -= accelerationForce;
             if (keyState.Down) this.vy += accelerationForce;
@@ -90,13 +91,24 @@ class Particle {
             
             this.vx *= frictionCoefficient;
             this.vy *= frictionCoefficient;
+            
+            // Cap player terminal velocities safely
+            const playerSpeed = Math.hypot(this.vx, this.vy);
+            if (playerSpeed > 7) {
+                this.vx = (this.vx / playerSpeed) * 7;
+                this.vy = (this.vy / playerSpeed) * 7;
+            }
+        } else {
+            // Ambient dots slowly cool down back to normal speed if they were blasted
+            if (this.currentMaxSpeed > NORMAL_SPEED_LIMIT) {
+                this.currentMaxSpeed *= 0.98; // Gradual decay over frames
+                if (this.currentMaxSpeed < NORMAL_SPEED_LIMIT) this.currentMaxSpeed = NORMAL_SPEED_LIMIT;
+            }
         }
 
         this.x += this.vx;
         this.y += this.vy;
         this.angle += this.rotationSpeed;
-
-        // Custom cycle mapping natively applying custom shift rates
         this.hue = (this.hue + this.colorShiftRate) % 360;
 
         if (this.cooldownRemaining > 0) {
@@ -119,13 +131,20 @@ class Particle {
             this.y = window.innerHeight - this.radius;
             this.vy *= -1;
         }
+
+        // Velocity ceiling clamp
+        const speed = Math.hypot(this.vx, this.vy);
+        if (!this.isPlayer && speed > this.currentMaxSpeed) {
+            this.vx = (this.vx / speed) * this.currentMaxSpeed;
+            this.vy = (this.vy / speed) * this.currentMaxSpeed;
+        }
     }
 
     collide() {
         if (this.cooldownRemaining === 0) {
             if (!this.isPlayer) {
                 this.shapeIndex = (this.shapeIndex + 1) % SHAPE_LIBRARY.length;
-                this.hue = (this.hue + 81) % 360;
+                this.hue = (this.hue + 80) % 360;
                 this.rotationSpeed *= -1;
             }
             this.cooldownRemaining = COOLDOWN_FRAMES;
@@ -138,8 +157,7 @@ class Particle {
         ctx.rotate(this.angle);
         
         if (this.isPlayer) {
-            // Give player glowing special properties
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 20;
             ctx.shadowColor = '#ffffff';
             ctx.fillStyle = '#ffffff';
         } else {
@@ -174,10 +192,9 @@ class Particle {
 
 // Spatial grid optimization processing matrix
 function checkCollisions() {
-    const cellSize = 35; 
+    const cellSize = 40; 
     const grid = {};
 
-    // Map instances into localized coordinate buckets
     particles.forEach(p => {
         const gx = Math.floor(p.x / cellSize);
         const gy = Math.floor(p.y / cellSize);
@@ -186,7 +203,6 @@ function checkCollisions() {
         grid[key].push(p);
     });
 
-    // Check cells against neighboring clusters to handle elastic vector transfers
     particles.forEach(p1 => {
         const gx = Math.floor(p1.x / cellSize);
         const gy = Math.floor(p1.y / cellSize);
@@ -210,16 +226,25 @@ function checkCollisions() {
                         const ny = dy / distance;
                         const correction = (targetDistance - distance) * 0.5;
 
-                        // Push apart instantly to keep nodes cleanly localized
+                        // Separate overlapping particles instantly
                         p1.x -= nx * correction;
                         p1.y -= ny * correction;
                         p2.x += nx * correction;
                         p2.y += ny * correction;
 
-                        // Swap physics momentum vectors smoothly
+                        // Elastic mass deflection velocity shifts
                         const kx = p1.vx - p2.vx;
                         const ky = p1.vy - p2.vy;
-                        const force = nx * kx + ny * ky;
+                        let force = nx * kx + ny * ky;
+
+                        // BLAST MODIFIER: If one of the colliding bodies is the human controllable token
+                        if (p1.isPlayer || p2.isPlayer) {
+                            const ambientDot = p1.isPlayer ? p2 : p1;
+                            // Temporarily unlock terminal speed barriers for the struck object
+                            ambientDot.currentMaxSpeed = EXPLOSIVE_SPEED_LIMIT;
+                            // Amplify force to make them shoot away rapidly
+                            force *= 2.5; 
+                        }
 
                         p1.vx -= force * nx;
                         p1.vy -= force * ny;
@@ -240,11 +265,9 @@ function setup() {
     resizeDisplay();
     particles = [];
     
-    // Create player character
     userControlledVehicle = new Particle(true);
     particles.push(userControlledVehicle);
 
-    // Populate ambient smaller targets
     for (let i = 0; i < TOTAL_PARTICLES; i++) {
         particles.push(new Particle(false));
     }
@@ -262,33 +285,3 @@ function animate() {
     let hueDifference = targetBgHue - currentBgHue;
     if (hueDifference > 180) hueDifference -= 360;
     if (hueDifference < -180) hueDifference += 360;
-    currentBgHue = (currentBgHue + hueDifference * 0.01 + 360) % 360;
-
-    ctx.fillStyle = `hsla(${currentBgHue}, 40%, 6%, 0.25)`;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
-    particles.forEach(p => p.update());
-    checkCollisions();
-    particles.forEach(p => p.draw());
-
-    requestAnimationFrame(animate);
-}
-
-// Map hardware key tracking vectors safely
-function updateControls(key, isPressed) {
-    if (key === 'ArrowUp' || key === 'w' || key === 'W') keyState.Up = isPressed;
-    if (key === 'ArrowDown' || key === 's' || key === 'S') keyState.Down = isPressed;
-    if (key === 'ArrowLeft' || key === 'a' || key === 'A') keyState.Left = isPressed;
-    if (key === 'ArrowRight' || key === 'd' || key === 'D') keyState.Right = isPressed;
-}
-
-window.addEventListener('keydown', (e) => updateControls(e.key, true));
-window.addEventListener('keyup', (e) => updateControls(e.key, false));
-window.addEventListener('resize', resizeDisplay);
-
-// Fire engine loops
-setup();
-animate();
-</script>
-</body>
-</html>
