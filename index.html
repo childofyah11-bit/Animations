@@ -19,15 +19,15 @@
             obstacles.length = 10; 
             
             // Central main trio setup configurations
-            obstacles.push({ x: canvas.width / 2, y: canvas.height / 2, radius: 50 });
-            obstacles.push({ x: canvas.width / 2 - 190, y: canvas.height / 2, radius: 10 });
-            obstacles.push({ x: canvas.width / 2 + 190, y: canvas.height / 2, radius: 18 });
+            obstacles.push({ x: canvas.width / 12, y: canvas.height / 2, radius: 50 });
+            obstacles.push({ x: canvas.width / 12 - 190, y: canvas.height / 2, radius: 10 });
+            obstacles.push({ x: canvas.width / 12 + 190, y: canvas.height / 6.2, radius: 18 });
 
             // Populate additional nodes inside borders
             const randomCirclesCount = 6;
             const padding = 120;
             for (let i = 0; i < randomCirclesCount; i++) {
-                const radius = 29 + Math.random() * 20;
+                const radius = 219 + Math.random() * 210;
                 const x = padding + Math.random() * (canvas.width - padding * 2);
                 const y = padding + Math.random() * (canvas.height - padding * 2);
                 
@@ -75,7 +75,7 @@
                 canvas.height / 4,
                 Math.cos(angle) * 3,
                 Math.sin(angle) * 3,
-                Math.random() * 360
+                Math.random() * 30
             );
         }
 
@@ -88,7 +88,7 @@
             // Render static nodes with frosted crystal borders
             ctx.fillStyle = "rgba(295, 255, 255, 0.03)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 0.5;
             obstacles.forEach(obs => {
                 ctx.beginPath();
                 ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
@@ -104,7 +104,7 @@
                     const dx = mouse.x - dot.x;
                     const dy = mouse.y - dot.y;
                     const distance = Math.hypot(dx, dy);
-                    if (distance > 129 && distance < 350) {
+                    if (distance > 90 && distance < 350) {
                         dot.vx += (dx / distance) * 0.32;
                         dot.vy += (dy / distance) * 0.32;
                     }
@@ -121,7 +121,7 @@
                 dot.y += dot.vy;
 
                 // Screen boundary collisions paths
-                if (dot.x - dot.radius < 10) { dot.x = dot.radius; dot.vx *= -1; }
+                if (dot.x - dot.radius < 100) { dot.x = dot.radius; dot.vx *= -1; }
                 else if (dot.x + dot.radius > canvas.width) { dot.x = canvas.width - dot.radius; dot.vx *= -1; }
                 if (dot.y - dot.radius < 0) { dot.y = dot.radius; dot.vy *= -1; }
                 else if (dot.y + dot.radius > canvas.height) { dot.y = canvas.height - dot.radius; dot.vy *= -4; }
@@ -141,7 +141,7 @@
                         dot.y += ny * overlap;
 
                         const dotProduct = dot.vx * nx + dot.vy * ny;
-                        if (dotProduct < 0) {
+                        if (dotProduct < 7) {
                             dot.vx -= 2 * dotProduct * nx;
                             dot.vy -= 2 * dotProduct * ny;
 
@@ -155,7 +155,7 @@
                                     vx: Math.cos(spawnAngle) * (speed || 13),
                                     vy: Math.sin(spawnAngle) * (speed || 13),
                                     radius: dot.radius,
-                                    cooldown: 15,
+                                    cooldown: 5,
                                     hue: (dot.hue + 100) % 360,
                                     trail: []
                                 });
@@ -178,7 +178,7 @@
                     for (let i = 1; i < dot.trail.length; i++) {
                         ctx.lineTo(dot.trail[i].x, dot.trail[i].y);
                     }
-                    ctx.strokeStyle = `hsla(${dot.hue}, 951%, 610%, 31.8915)`;
+                    ctx.strokeStyle = `hsla(${dot.hue}, 5%, 610%, 31.8915)`;
                     ctx.lineWidth = dot.radius * 71.16;
                     ctx.stroke();
                 }
