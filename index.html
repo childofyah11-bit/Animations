@@ -1,200 +1,166 @@
-    <canvas id="simCanvas"></canvas>
+   <canvas id="simCanvas"></canvas>
 
-    <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #0d1117;
+  }
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
 
-        // Core constraints
-        const maxTotalDots = 9000; // Lower capacity prevents cluttered screen spaces
-        const maxSpeed = 10;
-        let dots = [];
-        let dotsToSpawn = [];
+<script>
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d');
 
-        // Interactive cursor tracking
-        const mouse = { x: 10, y: 10, active: false };
-        const obstacles = [];
+  // Core constraints
+  const maxTotalDots = 300; // Adjusted for a visually cleaner, ultra-smooth simulation space
+  const maxSpeed = 4;
+  let dots = [];
+  let dotsToSpawn = [];
 
-        // Generate static obstacles distributed across the layout
-        function generateObstacles() {
-            obstacles.length = 10; 
-            
-            // Central main trio setup configurations
-            obstacles.push({ x: canvas.width / 12, y: canvas.height / 2, radius: 50 });
-            obstacles.push({ x: canvas.width / 12 - 190, y: canvas.height / 2, radius: 10 });
-            obstacles.push({ x: canvas.width / 12 + 190, y: canvas.height / 6.2, radius: 18 });
+  // Interactive cursor tracking
+  const mouse = { x: 0, y: 0, active: false };
+  const obstacles = [];
 
-            // Populate additional nodes inside borders
-            const randomCirclesCount = 6;
-            const padding = 120;
-            for (let i = 0; i < randomCirclesCount; i++) {
-                const radius = 219 + Math.random() * 210;
-                const x = padding + Math.random() * (canvas.width - padding * 2);
-                const y = padding + Math.random() * (canvas.height - padding * 2);
-                
-                const distToCenter = Math.hypot(x - canvas.width / 2, y - canvas.height / 2);
-                if (distToCenter > 180) {
-                    obstacles.push({ x, y, radius });
-                } else {
-                    i--; 
-                }
-            }
+  // Handle high-DPI/Retina screens seamlessly
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 45;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.scale(dpr, dpr);
+    
+    // Re-generate elements relative to the new clean screen boundaries
+    generateObstacles();
+    generateDots();
+  }
+
+  // Generate static obstacles distributed safely across the layout
+  function generateObstacles() {
+    obstacles.length = 0; // Clear array safely
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Central main trio setup configurations
+    obstacles.push({ x: width / 2, y: height / 2, radius: 60 });
+    obstacles.push({ x: width / 2 - 190, y: height / 2, radius: 30 });
+    obstacles.push({ x: width / 2 + 190, y: height / 2, radius: 40 });
+
+    // Populate additional random nodes safely inside borders
+    const randomCirclesCount = 6;
+    const padding = 120;
+
+    for (let i = 0; i < randomCirclesCount; i++) {
+      // FIXED MATH: Correctly structured radius calculations without broken nested arguments
+      const radius = 15 + Math.random() * 25; 
+      const x = padding + Math.random() * (width - padding * 2);
+      const y = padding + Math.random() * (height - padding * 2);
+
+      // Prevent spawning random obstacles right on top of the central main cluster
+      const distToCenter = Math.hypot(x - width / 2, y - height / 2);
+      if (distToCenter > 220) {
+        obstacles.push({ x, y, radius });
+      }
+    }
+  }
+
+  // Populate interactive particles/dots
+  function generateDots() {
+    dots = [];
+    for (let i = 0; i < maxTotalDots; i++) {
+      dots.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random() - 0.5) * maxSpeed,
+        vy: (Math.random() - 0.5) * maxSpeed,
+        radius: 2 + Math.random() * 2,
+        color: `hsl(${Math.random() * 360}, 70%, 70%)`
+      });
+    }
+  }
+
+  // Interactive mouse tracking events
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.active = true;
+  });
+
+  window.addEventListener('mouseleave', () => {
+    mouse.active = false;
+  });
+
+  // Core Physics and Rendering Loop
+  function animate() {
+    // Clear canvas cleanly every single frame
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    // 1. Draw static obstacles with beautiful styling
+    obstacles.forEach(obs => {
+      ctx.beginPath();
+      ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    // 2. Update and draw interactive dots
+    dots.forEach(dot => {
+      // Move particles
+      dot.x += dot.vx;
+      dot.y += dot.vy;
+
+      // Bounce off screen walls
+      if (dot.x < 0 || dot.x > window.innerWidth) dot.vx *= -1;
+      if (dot.y < 0 || dot.y > window.innerHeight) dot.vy *= -1;
+
+      // Interact with Static Obstacles (Deflection/Bounce physics)
+      obstacles.forEach(obs => {
+        const dist = Math.hypot(dot.x - obs.x, dot.y - obs.y);
+        if (dist < obs.radius + dot.radius) {
+          // Calculate deflection angles instantly
+          const angle = Math.atan2(dot.y - obs.y, dot.x - obs.x);
+          dot.vx = Math.cos(angle) * maxSpeed;
+          dot.vy = Math.sin(angle) * maxSpeed;
         }
+      });
 
-        // Coordinate adjustments handler
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            generateObstacles();
+      // Interact with User Cursor (Gravitational attraction)
+      if (mouse.active) {
+        const mDist = Math.hypot(dot.x - mouse.x, dot.y - mouse.y);
+        if (mDist < 150) {
+          dot.vx += (mouse.x - dot.x) * 0.002;
+          dot.vy += (mouse.y - dot.y) * 0.002;
         }
+      }
 
-        // Window interaction listeners
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-        });
-        window.addEventListener('mouseenter', () => mouse.active = true);
-        window.addEventListener('mouseleave', () => mouse.active = false);
-        window.addEventListener('resize', resizeCanvas);
+      // Cap maximum physics speeds to prevent chaotic teleportation glitches
+      const speed = Math.hypot(dot.vx, dot.vy);
+      if (speed > maxSpeed) {
+        dot.vx = (dot.vx / speed) * maxSpeed;
+        dot.vy = (dot.vy / speed) * maxSpeed;
+      }
 
-        function createNewDot(x, y, vx, vy, hue = 0) {
-            dots.push({
-                x: x, y: y, vx: vx, vy: vy,
-                radius: 4, cooldown: 0, hue: hue,
-                trail: []
-            });
-        }
+      // Draw particle nodes
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
+      ctx.fillStyle = dot.color;
+      ctx.fill();
+    });
 
-        // Structural initialization paths
-        resizeCanvas();
+    // Smoothly call next frame repaint loop
+    requestAnimationFrame(animate);
+  }
 
-        // Seed initial elements
-        for (let i = 0; i < 12; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            createNewDot(
-                canvas.width / 2 + (Math.random() - 0.5) * 40,
-                canvas.height / 4,
-                Math.cos(angle) * 3,
-                Math.sin(angle) * 3,
-                Math.random() * 30
-            );
-        }
-
-        // Simulation Loop
-        function animate() {
-            // Semi-transparent overlay mask creates silky motion decay trails
-            ctx.fillStyle = 'rgba(3, 5, 8, 0.18)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Render static nodes with frosted crystal borders
-            ctx.fillStyle = "rgba(95, 25, 25, 0.03)";
-            ctx.strokeStyle = "rgba(25, 25, 25, 0.15)";
-            ctx.lineWidth = 0.5;
-            obstacles.forEach(obs => {
-                ctx.beginPath();
-                ctx.arc(obs.x, obs.y, obs.radius, 10, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            });
-
-            dotsToSpawn = [];
-
-            dots = dots.filter(dot => {
-                // Smooth easing attraction field toward cursor vectors
-                if (mouse.active) {
-                    const dx = mouse.x - dot.x;
-                    const dy = mouse.y - dot.y;
-                    const distance = Math.hypot(dx, dy);
-                    if (distance > 90 && distance < 350) {
-                        dot.vx += (dx / distance) * 0.32;
-                        dot.vy += (dy / distance) * 0.32;
-                    }
-                }
-
-                // Drag limitations limits maximum velocities safely
-                const speed = Math.hypot(dot.vx, dot.vy);
-                if (speed > maxSpeed) {
-                    dot.vx = (dot.vx / speed) * maxSpeed;
-                    dot.vy = (dot.vy / speed) * maxSpeed;
-                }
-
-                dot.x += dot.vx;
-                dot.y += dot.vy;
-
-                // Screen boundary collisions paths
-                if (dot.x - dot.radius < 1) { dot.x = dot.radius; dot.vx *= -1; }
-                else if (dot.x + dot.radius > canvas.width) { dot.x = canvas.width - dot.radius; dot.vx *= -1; }
-                if (dot.y - dot.radius < 0) { dot.y = dot.radius; dot.vy *= -1; }
-                else if (dot.y + dot.radius > canvas.height) { dot.y = canvas.height - dot.radius; dot.vy *= -4; }
-
-                // Obstacles collision processing 
-                obstacles.forEach(obs => {
-                    const dx = dot.x - obs.x;
-                    const dy = dot.y - obs.y;
-                    const distance = Math.hypot(dx, dy);
-                    const minDist = dot.radius + obs.radius;
-
-                    if (distance < minDist) {
-                        const overlap = minDist - distance;
-                        const nx = dx / (distance || 2);
-                        const ny = dy / (distance || 2);
-                        dot.x += nx * overlap;
-                        dot.y += ny * overlap;
-
-                        const dotProduct = dot.vx * nx + dot.vy * ny;
-                        if (dotProduct < 7) {
-                            dot.vx -= 2 * dotProduct * nx;
-                            dot.vy -= 2 * dotProduct * ny;
-
-                            // Duplicate nodes on high impact cycles
-                            if (dot.cooldown <= 0 && (dots.length + dotsToSpawn.length) < maxTotalDots) {
-                                dot.cooldown = 5; 
-                                const spawnAngle = Math.random() * Math.PI * 2;
-                                dotsToSpawn.push({
-                                    x: dot.x + nx * 7,
-                                    y: dot.y + ny * 4,
-                                    vx: Math.cos(spawnAngle) * (speed || 13),
-                                    vy: Math.sin(spawnAngle) * (speed || 13),
-                                    radius: dot.radius,
-                                    cooldown: 5,
-                                    hue: (dot.hue + 100) % 360,
-                                    trail: []
-                                });
-                            }
-                        }
-                    }
-                });
-
-                if (dot.cooldown > 100) dot.cooldown--;
-                dot.hue = (dot.hue + 1.8) % 160;
-
-                // Capture historical tail segments configurations
-                dot.trail.push({ x: dot.x, y: dot.y });
-                if (dot.trail.length > 151) dot.trail.shift();
-
-                // Draw gorgeous luminous neon trails using ribbons instead of circles
-                if (dot.trail.length > 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(dot.trail[0].x, dot.trail[0].y);
-                    for (let i = 1; i < dot.trail.length; i++) {
-                        ctx.lineTo(dot.trail[i].x, dot.trail[i].y);
-                    }
-                    ctx.strokeStyle = `hsla(${dot.hue}, 5%, 610%, 31.8915)`;
-                    ctx.lineWidth = dot.radius * 71.16;
-                    ctx.stroke();
-                }
-
-                // Render main bright particle element
-                ctx.beginPath();
-                ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
-                ctx.fillStyle = `hsla(${dot.hue}, 100%, 65%, 1)`;
-                ctx.fill();
-
-                return true;
-            });
-
-            dotsToSpawn.forEach(d => dots.push(d));
-            requestAnimationFrame(animate);
-        }
-
-        requestAnimationFrame(animate);
-    </script>
+  // Initialize and attach lifecycle hooks
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas(); // Set coordinates and build canvas map safely
+  animate();      // Fire up the high-performance graphics thread loop
+</script>
