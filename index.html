@@ -3,238 +3,232 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>62</title>
+    <title>63</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            background: #020406; overflow: hidden; width: 100vw; height: 100vh; 
+            background: #04060a; overflow: hidden; width: 100vw; height: 100vh; 
             display: flex; justify-content: center; align-items: center;
             font-family: system-ui, -apple-system, sans-serif;
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* Glassmorphic Dashboard Panel Overlay */
-        #dashboardMenu {
-            position: absolute; top: 20px; left: 20px;
-            background: rgba(8, 12, 20, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; width: 260px; color: #fff;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.5); user-select: none;
+        /* HUD Controller Layout */
+        #hud {
+            position: absolute; top: 15px; left: 15px;
+            background: rgba(10, 16, 26, 0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px; width: 250px; color: #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6); user-select: none;
         }
-        .menuHeader { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
-        .inputRow { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-        .inputRow label { font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
-        .inputRow label span { font-weight: 700; color: #38bdf8; }
-        .sliderInput { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.15); outline: none; }
-        .sliderInput::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 8px #38bdf8; }
+        .header { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+        .row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+        .row label { font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+        .row label span { font-weight: 700; color: #38bdf8; }
+        .slider { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.15); outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 6px #38bdf8; }
     </style>
 </head>
 <body>
 
-<canvas id="arenaCanvas"></canvas>
+<canvas id="canvas"></canvas>
 
-<div id="dashboardMenu">
-    <div class="menuHeader">Nebula Control Panel</div>
-    <div class="inputRow">
-        <label>Player Shield Size: <span id="lblSize">25px</span></label>
-        <input type="range" id="slSize" class="sliderInput" min="15" max="60" value="25">
+<div id="hud">
+    <div class="header">Arena Modifiers</div>
+    <div class="row">
+        <label>Shield Size: <span id="txtSize">25px</span></label>
+        <input type="range" id="inputSize" class="slider" min="15" max="60" value="25">
     </div>
-    <div class="inputRow">
-        <label>Repulsion Blast Force: <span id="lblBlast">3.5x</span></label>
-        <input type="range" id="slBlast" class="sliderInput" min="1" max="8" step="0.5" value="3.5">
+    <div class="row">
+        <label>Repulsion Force: <span id="txtForce">3.5x</span></label>
+        <input type="range" id="inputForce" class="slider" min="1" max="8" step="0.5" value="3.5">
     </div>
-    <div class="inputRow">
-        <label>Laser Vector Range: <span id="lblLaser">80px</span></label>
-        <input type="range" id="slLaser" class="sliderInput" min="0" max="200" step="5" value="80">
+    <div class="row">
+        <label>Laser Vector Net: <span id="txtNet">80px</span></label>
+        <input type="range" id="inputNet" class="slider" min="0" max="200" step="5" value="80">
     </div>
 </div>
 
 <script>
-const canvas = document.getElementById('arenaCanvas');
-const ctx = canvas.getContext('2d');
+const cvs = document.getElementById('canvas');
+const ctx = cvs.getContext('2d');
 
-const TOTAL_ELEMENTS = 140;
-const BASE_SPEED = 1.6;
-const SHAPE_MODES = ['circle', 'square', 'triangle', 'star'];
+const TOTAL_ELEMENTS = 130;
+const SPEED_NORMAL = 1.5;
+const GEOMETRIES = ['circle', 'square', 'triangle', 'star'];
 
-let elementArray = [];
-let jgPlayer = null;
+let nodes = [];
+let hero = null;
 
-// Dynamic control bindings
-const movementKeys = { Up: false, Down: false, Left: false, Right: false };
-const liveSettings = { size: 25, blastForce: 3.5, laserRange: 80 };
+const activeKeys = { Up: false, Down: false, Left: false, Right: false };
+const cfg = { size: 25, force: 3.5, net: 80 };
 
-let activeHue = 240;
-let destinationHue = 240;
-let backgroundTimer = performance.now();
+let bgHue = 240, destHue = 240, bgTime = performance.now();
 
-function updateDimensions() {
-    const dprRatio = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dprRatio;
-    canvas.height = window.innerHeight * dprRatio;
-    ctx.scale(dprRatio, dprRatio);
+function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    cvs.width = window.innerWidth * dpr;
+    cvs.height = window.innerHeight * dpr;
+    ctx.scale(dpr, dpr);
 }
 
-class ArenaNode {
-    constructor(isHeroInstance = false) {
-        this.isPlayer = isHeroInstance;
-        this.radius = this.isPlayer ? liveSettings.size : 3 + Math.random() * 6;
-        
-        this.x = this.radius + Math.random() * (window.innerWidth - this.radius * 2);
-        this.y = this.radius + Math.random() * (window.innerHeight - this.radius * 2);
-        
-        this.vx = this.isPlayer ? 0 : (Math.random() - 0.5) * BASE_SPEED;
-        this.vy = this.isPlayer ? 0 : (Math.random() - 0.5) * BASE_SPEED;
-        
+class ArenaDot {
+    constructor(controlFlag = false) {
+        this.player = controlFlag;
+        this.r = this.player ? cfg.size : 3 + Math.random() * 6;
+        this.x = this.r + Math.random() * (window.innerWidth - this.r * 2);
+        this.y = this.r + Math.random() * (window.innerHeight - this.r * 2);
+        this.vx = this.player ? 0 : (Math.random() - 0.5) * SPEED_NORMAL;
+        this.vy = this.player ? 0 : (Math.random() - 0.5) * SPEED_NORMAL;
         this.hue = Math.random() * 360;
-        this.colorSpeed = this.isPlayer ? 0 : 0.4 + Math.random() * 2;
-        this.shapeIndex = Math.floor(Math.random() * SHAPE_MODES.length);
-        this.rotationAngle = Math.random() * Math.PI;
-        this.spinSpeed = this.isPlayer ? 0.01 : (Math.random() - 0.5) * 0.05;
-        this.speedCap = BASE_SPEED;
+        this.hueSpeed = this.player ? 0 : 0.4 + Math.random() * 2;
+        this.shapeIdx = Math.floor(Math.random() * GEOMETRIES.length);
+        this.angle = Math.random() * Math.PI;
+        this.spin = this.player ? 0.01 : (Math.random() - 0.5) * 0.05;
+        this.speedCap = SPEED_NORMAL;
     }
 
     update() {
-        if (this.isPlayer) {
-            this.radius = liveSettings.size; // Update shield size instantly from UI
-            
-            const accelerationForce = 0.65;
-            const globalDecay = 0.91;
-            
-            if (movementKeys.Up) this.vy -= accelerationForce;
-            if (movementKeys.Down) this.vy += accelerationForce;
-            if (movementKeys.Left) this.vx -= accelerationForce;
-            if (movementKeys.Right) this.vx += accelerationForce;
-            
-            this.vx *= globalDecay;
-            this.vy *= globalDecay;
+        if (this.player) {
+            this.r = cfg.size;
+            const power = 0.65, decay = 0.91;
+            if (activeKeys.Up) this.vy -= power;
+            if (activeKeys.Down) this.vy += power;
+            if (activeKeys.Left) this.vx -= power;
+            if (activeKeys.Right) this.vx += power;
+            this.vx *= decay; this.vy *= decay;
         } else {
-            // Cool down from explosive launches over time
-            if (this.speedCap > BASE_SPEED) {
+            if (this.speedCap > SPEED_NORMAL) {
                 this.speedCap *= 0.98;
-                if (this.speedCap < BASE_SPEED) this.speedCap = BASE_SPEED;
+                if (this.speedCap < SPEED_NORMAL) this.speedCap = SPEED_NORMAL;
             }
         }
 
-        this.x += this.vx;
-        this.y += this.vy;
-        this.rotationAngle += this.spinSpeed;
-        this.hue = (this.hue + this.colorSpeed) % 360;
+        this.x += this.vx; this.y += this.vy;
+        this.angle += this.spin;
+        this.hue = (this.hue + this.hueSpeed) % 360;
 
-        // Secure bounds collisions
-        if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -1; }
-        if (this.x + this.radius > window.innerWidth) { this.x = window.innerWidth - this.radius; this.vx *= -1; }
-        if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -1; }
-        if (this.y + this.radius > window.innerHeight) { this.y = window.innerHeight - this.radius; this.vy *= -1; }
+        if (this.x - this.r < 0) { this.x = this.r; this.vx *= -1; }
+        if (this.x + this.r > window.innerWidth) { this.x = window.innerWidth - this.r; this.vx *= -1; }
+        if (this.y - this.r < 0) { this.y = this.r; this.vy *= -1; }
+        if (this.y + this.r > window.innerHeight) { this.y = window.innerHeight - this.r; this.vy *= -1; }
 
-        // Dynamic speed clamping
-        const currentSpeed = Math.hypot(this.vx, this.vy);
-        if (!this.isPlayer && currentSpeed > this.speedCap) {
-            this.vx = (this.vx / currentSpeed) * this.speedCap;
-            this.vy = (this.vy / currentSpeed) * this.speedCap;
+        const velocity = Math.hypot(this.vx, this.vy);
+        if (!this.player && velocity > this.speedCap) {
+            this.vx = (this.vx / velocity) * this.speedCap;
+            this.vy = (this.vy / velocity) * this.speedCap;
         }
     }
 
-    onImpact() {
-        if (!this.isPlayer) {
-            this.shapeIndex = (this.shapeIndex + 1) % SHAPE_MODES.length;
+    hit() {
+        if (!this.player) {
+            this.shapeIdx = (this.shapeIdx + 1) % GEOMETRIES.length;
             this.hue = (this.hue + 75) % 360;
         }
     }
 
     draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.rotationAngle);
-        
-        if (this.isPlayer) {
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = '#38bdf8';
-            ctx.fillStyle = '#ffffff';
+        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+        if (this.player) {
+            ctx.shadowBlur = 30; ctx.shadowColor = '#38bdf8'; ctx.fillStyle = '#ffffff';
         } else {
             ctx.fillStyle = `hsla(${this.hue}, 95%, 65%, 0.85)`;
         }
-        
         ctx.beginPath();
-        const activeShapeLayout = this.isPlayer ? 'circle' : SHAPE_MODES[this.shapeIndex];
-        const r = this.radius;
+        const mode = this.player ? 'circle' : GEOMETRIES[this.shapeIdx];
+        const r = this.r;
 
-        if (activeShapeLayout === 'circle') {
-            ctx.arc(0, 0, r, 0, Math.PI * 2);
-        } else if (activeShapeLayout === 'square') {
-            ctx.rect(-r, -r, r * 2, r * 2);
-        } else if (activeShapeLayout === 'triangle') {
-            ctx.moveTo(0, -r);
-            ctx.lineTo(r, r);
-            ctx.lineTo(-r, r);
-        } else if (activeShapeLayout === 'star') {
+        if (mode === 'circle') ctx.arc(0, 0, r, 0, Math.PI * 2);
+        else if (mode === 'square') ctx.rect(-r, -r, r * 2, r * 2);
+        else if (mode === 'triangle') { ctx.moveTo(0, -r); ctx.lineTo(r, r); ctx.lineTo(-r, r); }
+        else if (mode === 'star') {
             for (let i = 0; i < 5; i++) {
                 ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r, -Math.sin((18 + i * 72) * Math.PI / 180) * r);
                 ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 2), -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 2));
             }
         }
-        
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        ctx.closePath(); ctx.fill(); ctx.restore();
     }
 }
 
-function processIntersections() {
-    for (let i = 0; i < elementArray.length; i++) {
-        for (let j = i + 1; j < elementArray.length; j++) {
-            const n1 = elementArray[i];
-            const n2 = elementArray[j];
-            
-            const dx = n2.x - n1.x;
-            const dy = n2.y - n1.y;
+function resolveCollisions() {
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const n1 = nodes[i], n2 = nodes[j];
+            const dx = n2.x - n1.x, dy = n2.y - n1.y;
             const distance = Math.hypot(dx, dy);
-            const clearanceLimit = n1.radius + n2.radius;
+            const limit = n1.r + n2.r;
 
-            // Render laser beam grid networks
-            if (distance < liveSettings.laserRange && !n1.isPlayer && !n2.isPlayer) {
-                ctx.beginPath();
-                ctx.moveTo(n1.x, n1.y);
-                ctx.lineTo(n2.x, n2.y);
-                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 85%, 55%, ${1 - distance / liveSettings.laserRange})`;
-                ctx.lineWidth = 0.8;
-                ctx.stroke();
+            if (distance < cfg.net && !n1.player && !n2.player) {
+                ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y);
+                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 85%, 55%, ${1 - distance / cfg.net})`;
+                ctx.lineWidth = 0.8; ctx.stroke();
             }
 
-            if (distance < clearanceLimit && distance > 0) {
-                const nx = dx / distance;
-                const ny = dy / distance;
-                const overlappingCorrection = (clearanceLimit - distance) * 0.5;
+            if (distance < limit && distance > 0) {
+                const nx = dx / distance, ny = dy / distance;
+                const offset = (limit - distance) * 0.5;
 
-                // PLOW THROUGH PHYSICS: Player never loses momentum; targets are thrown away
-                if (n1.isPlayer) {
-                    n2.x += nx * overlappingCorrection * 2;
-                    n2.y += ny * overlappingCorrection * 2;
-                } else if (n2.isPlayer) {
-                    n1.x -= nx * overlappingCorrection * 2;
-                    n1.y -= ny * overlappingCorrection * 2;
+                if (n1.player) { n2.x += nx * offset * 2; n2.y += ny * offset * 2; }
+                else if (n2.player) { n1.x -= nx * offset * 2; n1.y -= ny * offset * 2; }
+                else { n1.x -= nx * offset; n1.y -= ny * offset; n2.x += nx * offset; n2.y += ny * offset; }
+
+                const kx = n1.vx - n2.vx, ky = n1.vy - n2.vy;
+                let force = nx * kx + ny * ky;
+
+                if (n1.player || n2.player) {
+                    const target = n1.player ? n2 : n1;
+                    target.speedCap = 16; force *= (cfg.force * 1.3);
+                    if (n1.player) { n2.vx += force * nx; n2.vy += force * ny; }
+                    else { n1.vx -= force * nx; n1.vy -= force * ny; }
                 } else {
-                    n1.x -= nx * overlappingCorrection;
-                    n1.y -= ny * overlappingCorrection;
-                    n2.x += nx * overlappingCorrection;
-                    n2.y += ny * overlappingCorrection;
+                    n1.vx -= force * nx; n1.vy -= force * ny;
+                    n2.vx += force * nx; n2.vy += force * ny;
                 }
+                n1.hit(); n2.hit();
+            }
+        }
+    }
+}
 
-                const kx = n1.vx - n2.vx;
-                const ky = n1.vy - n2.vy;
-                let forceMagnitude = nx * kx + ny * ky;
+function init() {
+    resize(); nodes = [];
+    hero = new ArenaDot(true); nodes.push(hero);
+    for (let i = 0; i < TOTAL_ELEMENTS; i++) nodes.push(new ArenaDot(false));
+}
 
-                if (n1.isPlayer || n2.isPlayer) {
-                    const struckTarget = n1.isPlayer ? n2 : n1;
-                    struckTarget.speedCap = 16; 
-                    forceMagnitude *= (liveSettings.blastForce * 1.3); // Dynamic blast boost multiplier
+function loop() {
+    const time = performance.now();
+    if (time - bgTime > 10000) { destHue = Math.random() * 360; bgTime = time; }
+    let diff = destHue - bgHue;
+    if (diff > 180) diff -= 360; if (diff < -180) diff += 360;
+    bgHue = (bgHue + diff * 0.01 + 360) % 360;
 
-                    if (n1.isPlayer) {
-                        n2.vx += forceMagnitude * nx;
-                        n2.vy += forceMagnitude * ny;
-                    } else {
-                        n1.vx -= forceMagnitude * nx;
-                        n1.vy -= forceMagnitude * ny;
-                    }
-                } else {
-                    n1.vx -= forceMagnitude * nx;
-                    n1.vy -= forceMagnitude * ny;
+    ctx.fillStyle = `hsla(${bgHue}, 35%, 5%, 0.24)`;
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    nodes.forEach(n => n.update());
+    resolveCollisions();
+    nodes.forEach(n => n.draw());
+    requestAnimationFrame(loop);
+}
+
+function trackKeys(code, state) {
+    if (code === 'KeyW' || code === 'ArrowUp') activeKeys.Up = state;
+    if (code === 'KeyS' || code === 'ArrowDown') activeKeys.Down = state;
+    if (code === 'KeyA' || code === 'ArrowLeft') activeKeys.Left = state;
+    if (code === 'KeyD' || code === 'ArrowRight') activeKeys.Right = state;
+}
+
+window.addEventListener('keydown', (e) => trackKeys(e.code, true));
+window.addEventListener('keyup', (e) => trackKeys(e.code, false));
+window.addEventListener('resize', resize);
+
+document.getElementById('inputSize').addEventListener('input', (e) => { cfg.size = parseInt(e.target.value); document.getElementById('txtSize').innerText = `${e.target.value}px`; });
+document.getElementById('inputForce').addEventListener('input', (e) => { cfg.force = parseFloat(e.target.value); document.getElementById('txtForce').innerText = `${e.target.value}x`; });
+document.getElementById('inputNet').addEventListener('input', (e) => { cfg.net = parseInt(e.target.value); document.getElementById('txtNet').innerText = `${e.target.value}px`; });
+
+init();
+loop();
+</script>
+</body>
+</html>
