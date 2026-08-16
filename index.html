@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulation36</title>
+    <title>Fluid Geometric Shape Simulation</title>
     <style>
         * {
             margin: 0;
@@ -32,10 +32,16 @@ const canvas = document.getElementById('simulationCanvas');
 const ctx = canvas.getContext('2d');
 
 // Engine Configurations
-const TOTAL_PARTICLES = 250;
-const SPEED_LIMIT = 2.5;
+const TOTAL_PARTICLES = 1000;
+const SPEED_LIMIT = 12.5;
 const SHAPE_LIBRARY = ['circle', 'square', 'triangle', 'star'];
+const COOLDOWN_FRAMES = 5; // 0.5 seconds lock time at 60fps
 let particles = [];
+
+// Background color interpolation states
+let currentBgHue = 227; // Starting midnight blue hue
+let targetBgHue = 220;
+let lastBgTransitionTime = performance.now();
 
 // Crisp multi-DPI display setup
 function resizeDisplay() {
@@ -57,6 +63,7 @@ class Particle {
         this.shapeIndex = Math.floor(Math.random() * SHAPE_LIBRARY.length);
         this.angle = Math.random() * Math.PI;
         this.rotationSpeed = (Math.random() - 0.5) * 0.04; // Smooth internal spin
+        this.cooldownRemaining = 0; // Cooldown frame counter
     }
 
     update() {
@@ -66,6 +73,11 @@ class Particle {
 
         // Idle slow rainbow wave color shifts
         this.hue = (this.hue + 0.3) % 360;
+
+        // Decrement cooldown tracker safely
+        if (this.cooldownRemaining > 0) {
+            this.cooldownRemaining--;
+        }
 
         // Precise wall bounce physics
         if (this.x - this.radius < 0) {
@@ -86,19 +98,27 @@ class Particle {
     }
 
     collide() {
-        // Morph shapes sequentially on impact
-        this.shapeIndex = (this.shapeIndex + 1) % SHAPE_LIBRARY.length;
-        // Explode color into a distinct contrasting hue instantly on collision
-        this.hue = (this.hue + 75) % 360;
-        // Invert rotation direction on clash
-        this.rotationSpeed *= -1;
+        // Only trigger changes if the cooldown has expired
+        if (this.cooldownRemaining === 0) {
+            // Morph shapes sequentially on impact
+            this.shapeIndex = (this.shapeIndex + 1) % SHAPE_LIBRARY.length;
+            // Explode color into a distinct contrasting hue instantly on collision
+            this.hue = (this.hue + 75) % 360;
+            // Invert rotation direction on clash
+            this.rotationSpeed *= -1;
+            // Set cooldown to prevent instant re-triggering
+            this.cooldownRemaining = COOLDOWN_FRAMES;
+        }
     }
 
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        ctx.fillStyle = `hsla(${this.hue}, 95%, 60%, 0.85)`;
+        
+        // Visual indicator: lower opacity slightly if in cooldown to show state stability
+        const alpha = this.cooldownRemaining > 0 ? 0.65 : 0.85;
+        ctx.fillStyle = `hsla(${this.hue}, 95%, 60%, ${alpha})`;
         ctx.beginPath();
 
         const currentShape = SHAPE_LIBRARY[this.shapeIndex];
@@ -158,7 +178,7 @@ function checkCollisions() {
                 p2.vx += force * nx;
                 p2.vy += force * ny;
 
-                // Fire mutating behaviors
+                // Fire mutating behaviors (safeguarded by internal cooldowns)
                 p1.collide();
                 p2.collide();
             }
@@ -177,8 +197,23 @@ function setup() {
 
 // Animation core runner loop
 function animate() {
-    // Elegant neon motion trailing opacity overlay
-    ctx.fillStyle = 'rgba(8, 11, 17, 0.2)';
+    const currentTime = performance.now();
+
+    // Check if 10 seconds (10000ms) have passed to cycle background target hue
+    if (currentTime - lastBgTransitionTime > 10000) {
+        targetBgHue = Math.random() * 360;
+        lastBgTransitionTime = currentTime;
+    }
+
+    // Smoothly shift current background color hue toward the target hue
+    let hueDifference = targetBgHue - currentBgHue;
+    // Handle wrapping across the 360-degree color wheel boundaries cleanly
+    if (hueDifference > 180) hueDifference -= 360;
+    if (hueDifference < -180) hueDifference += 360;
+    currentBgHue = (currentBgHue + hueDifference * 0.01 + 360) % 360;
+
+    // Elegant neon motion trailing opacity overlay using the changing dynamic color background
+    ctx.fillStyle = `hsla(${currentBgHue}, 40%, 6%, 0.2)`;
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     particles.forEach(p => p.update());
