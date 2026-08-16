@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fluid Particle Arena</title>
+    <title> Animation 54th edit</title>
     <style>
         * {
             margin: 0;
@@ -33,8 +33,8 @@ const ctx = canvas.getContext('2d');
 
 // Engine Configurations
 const TOTAL_PARTICLES = 600; 
-const NORMAL_SPEED_LIMIT = 3;  // Turned down ambient speed for clarity
-const EXPLOSIVE_SPEED_LIMIT = 18; // Max blast speed after hitting the player
+const NORMAL_SPEED_LIMIT = 3;  
+const EXPLOSIVE_SPEED_LIMIT = 18; 
 const SHAPE_LIBRARY = ['circle', 'square', 'triangle', 'star'];
 const COOLDOWN_FRAMES = 8; 
 let particles = [];
@@ -75,12 +75,11 @@ class Particle {
         this.angle = Math.random() * Math.PI;
         this.rotationSpeed = this.isPlayer ? 0.01 : (Math.random() - 0.5) * 0.05; 
         this.cooldownRemaining = 0; 
-        this.currentMaxSpeed = NORMAL_SPEED_LIMIT; // Dynamic speed threshold per dot
+        this.currentMaxSpeed = NORMAL_SPEED_LIMIT; 
     }
 
     update() {
         if (this.isPlayer) {
-            // FIXED acceleration & proper fractional decay friction matrix
             const accelerationForce = 0.6;
             const frictionCoefficient = 0.92;
             
@@ -92,16 +91,14 @@ class Particle {
             this.vx *= frictionCoefficient;
             this.vy *= frictionCoefficient;
             
-            // Cap player terminal velocities safely
             const playerSpeed = Math.hypot(this.vx, this.vy);
             if (playerSpeed > 7) {
                 this.vx = (this.vx / playerSpeed) * 7;
                 this.vy = (this.vy / playerSpeed) * 7;
             }
         } else {
-            // Ambient dots slowly cool down back to normal speed if they were blasted
             if (this.currentMaxSpeed > NORMAL_SPEED_LIMIT) {
-                this.currentMaxSpeed *= 0.98; // Gradual decay over frames
+                this.currentMaxSpeed *= 0.98; 
                 if (this.currentMaxSpeed < NORMAL_SPEED_LIMIT) this.currentMaxSpeed = NORMAL_SPEED_LIMIT;
             }
         }
@@ -226,23 +223,18 @@ function checkCollisions() {
                         const ny = dy / distance;
                         const correction = (targetDistance - distance) * 0.5;
 
-                        // Separate overlapping particles instantly
                         p1.x -= nx * correction;
                         p1.y -= ny * correction;
                         p2.x += nx * correction;
                         p2.y += ny * correction;
 
-                        // Elastic mass deflection velocity shifts
                         const kx = p1.vx - p2.vx;
                         const ky = p1.vy - p2.vy;
                         let force = nx * kx + ny * ky;
 
-                        // BLAST MODIFIER: If one of the colliding bodies is the human controllable token
                         if (p1.isPlayer || p2.isPlayer) {
                             const ambientDot = p1.isPlayer ? p2 : p1;
-                            // Temporarily unlock terminal speed barriers for the struck object
                             ambientDot.currentMaxSpeed = EXPLOSIVE_SPEED_LIMIT;
-                            // Amplify force to make them shoot away rapidly
                             force *= 2.5; 
                         }
 
@@ -260,7 +252,6 @@ function checkCollisions() {
     });
 }
 
-// Global System Boot Instantiation
 function setup() {
     resizeDisplay();
     particles = [];
@@ -285,3 +276,23 @@ function animate() {
     let hueDifference = targetBgHue - currentBgHue;
     if (hueDifference > 180) hueDifference -= 360;
     if (hueDifference < -180) hueDifference += 360;
+    currentBgHue = (currentBgHue + hueDifference * 0.01 + 360) % 360;
+
+    ctx.fillStyle = `hsla(${currentBgHue}, 40%, 6%, 0.25)`;
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    particles.forEach(p => p.update());
+    checkCollisions();
+    particles.forEach(p => p.draw());
+
+    requestAnimationFrame(animate);
+}
+
+function updateControls(key, isPressed) {
+    if (key === 'ArrowUp' || key === 'w' || key === 'W') keyState.Up = isPressed;
+    if (key === 'ArrowDown' || key === 's' || key === 'S') keyState.Down = isPressed;
+    if (key === 'ArrowLeft' || key === 'a' || key === 'A') keyState.Left = isPressed;
+    if (key === 'ArrowRight' || key === 'd' || key === 'D') keyState.Right = isPressed;
+}
+
+window.addEventListener('keydown', (e) => updateControls(e.key, true));
