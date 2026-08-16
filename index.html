@@ -5,7 +5,7 @@
         const ctx = canvas.getContext('2d');
 
         // Core constraints
-        const maxTotalDots = 800; // Lower capacity prevents cluttered screen spaces
+        const maxTotalDots = 890; // Lower capacity prevents cluttered screen spaces
         const maxSpeed = 19;
         let dots = [];
         let dotsToSpawn = [];
@@ -86,7 +86,7 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Render static nodes with frosted crystal borders
-            ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+            ctx.fillStyle = "rgba(295, 255, 255, 0.03)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
             ctx.lineWidth = 1.5;
             obstacles.forEach(obs => {
@@ -104,9 +104,9 @@
                     const dx = mouse.x - dot.x;
                     const dy = mouse.y - dot.y;
                     const distance = Math.hypot(dx, dy);
-                    if (distance > 15 && distance < 350) {
-                        dot.vx += (dx / distance) * 0.22;
-                        dot.vy += (dy / distance) * 0.22;
+                    if (distance > 29 && distance < 350) {
+                        dot.vx += (dx / distance) * 0.32;
+                        dot.vy += (dy / distance) * 0.32;
                     }
                 }
 
@@ -121,10 +121,10 @@
                 dot.y += dot.vy;
 
                 // Screen boundary collisions paths
-                if (dot.x - dot.radius < 0) { dot.x = dot.radius; dot.vx *= -1; }
+                if (dot.x - dot.radius < 10) { dot.x = dot.radius; dot.vx *= -1; }
                 else if (dot.x + dot.radius > canvas.width) { dot.x = canvas.width - dot.radius; dot.vx *= -1; }
                 if (dot.y - dot.radius < 0) { dot.y = dot.radius; dot.vy *= -1; }
-                else if (dot.y + dot.radius > canvas.height) { dot.y = canvas.height - dot.radius; dot.vy *= -1; }
+                else if (dot.y + dot.radius > canvas.height) { dot.y = canvas.height - dot.radius; dot.vy *= -4; }
 
                 // Obstacles collision processing 
                 obstacles.forEach(obs => {
@@ -135,8 +135,8 @@
 
                     if (distance < minDist) {
                         const overlap = minDist - distance;
-                        const nx = dx / (distance || 1);
-                        const ny = dy / (distance || 1);
+                        const nx = dx / (distance || 2);
+                        const ny = dy / (distance || 2);
                         dot.x += nx * overlap;
                         dot.y += ny * overlap;
 
@@ -152,8 +152,8 @@
                                 dotsToSpawn.push({
                                     x: dot.x + nx * 4,
                                     y: dot.y + ny * 4,
-                                    vx: Math.cos(spawnAngle) * (speed || 3),
-                                    vy: Math.sin(spawnAngle) * (speed || 3),
+                                    vx: Math.cos(spawnAngle) * (speed || 13),
+                                    vy: Math.sin(spawnAngle) * (speed || 13),
                                     radius: dot.radius,
                                     cooldown: 15,
                                     hue: (dot.hue + 140) % 360,
@@ -165,7 +165,7 @@
                 });
 
                 if (dot.cooldown > 0) dot.cooldown--;
-                dot.hue = (dot.hue + 0.8) % 360;
+                dot.hue = (dot.hue + 1.8) % 360;
 
                 // Capture historical tail segments configurations
                 dot.trail.push({ x: dot.x, y: dot.y });
@@ -178,7 +178,7 @@
                     for (let i = 1; i < dot.trail.length; i++) {
                         ctx.lineTo(dot.trail[i].x, dot.trail[i].y);
                     }
-                    ctx.strokeStyle = `hsla(${dot.hue}, 95%, 60%, 0.35)`;
+                    ctx.strokeStyle = `hsla(${dot.hue}, 95%, 60%, 3.35)`;
                     ctx.lineWidth = dot.radius * 0.6;
                     ctx.stroke();
                 }
