@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>61</title>
+    <title>62</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -13,38 +13,38 @@
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* Sleek Glassmorphic Control Panel Overlay */
-        #hudMenu {
+        /* Glassmorphic Dashboard Panel Overlay */
+        #dashboardMenu {
             position: absolute; top: 20px; left: 20px;
             background: rgba(8, 12, 20, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; width: 260px; color: #fff;
             box-shadow: 0 15px 30px rgba(0,0,0,0.5); user-select: none;
         }
-        .hudHeader { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
-        .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-        .row label { font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
-        .row label span { font-weight: 700; color: #38bdf8; }
-        .slider { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.15); outline: none; }
-        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 8px #38bdf8; }
+        .menuHeader { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+        .inputRow { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+        .inputRow label { font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+        .inputRow label span { font-weight: 700; color: #38bdf8; }
+        .sliderInput { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.15); outline: none; }
+        .sliderInput::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 8px #38bdf8; }
     </style>
 </head>
 <body>
 
 <canvas id="arenaCanvas"></canvas>
 
-<div id="hudMenu">
-    <div class="hudHeader">Nebula Dashboard</div>
-    <div class="row">
+<div id="dashboardMenu">
+    <div class="menuHeader">Nebula Control Panel</div>
+    <div class="inputRow">
         <label>Player Shield Size: <span id="lblSize">25px</span></label>
-        <input type="range" id="slSize" class="slider" min="15" max="60" value="25">
+        <input type="range" id="slSize" class="sliderInput" min="15" max="60" value="25">
     </div>
-    <div class="row">
+    <div class="inputRow">
         <label>Repulsion Blast Force: <span id="lblBlast">3.5x</span></label>
-        <input type="range" id="slBlast" class="slider" min="1" max="8" step="0.5" value="3.5">
+        <input type="range" id="slBlast" class="sliderInput" min="1" max="8" step="0.5" value="3.5">
     </div>
-    <div class="row">
+    <div class="inputRow">
         <label>Laser Vector Range: <span id="lblLaser">80px</span></label>
-        <input type="range" id="slLaser" class="slider" min="0" max="200" step="5" value="80">
+        <input type="range" id="slLaser" class="sliderInput" min="0" max="200" step="5" value="80">
     </div>
 </div>
 
@@ -52,179 +52,189 @@
 const canvas = document.getElementById('arenaCanvas');
 const ctx = canvas.getContext('2d');
 
-const DOTS_COUNT = 150;
-const SPEED_BASE = 1.6;
-const SHAPES = ['circle', 'square', 'triangle', 'star'];
+const TOTAL_ELEMENTS = 140;
+const BASE_SPEED = 1.6;
+const SHAPE_MODES = ['circle', 'square', 'triangle', 'star'];
 
-let nodes = [];
-let player = null;
-const inputs = { moveUp: false, moveDown: false, moveLeft: false, moveRight: false };
+let elementArray = [];
+let jgPlayer = null;
 
-// Real-time modifier values controlled by sliders
-const settings = { size: 25, blast: 3.5, laser: 80 };
+// Dynamic control bindings
+const movementKeys = { Up: false, Down: false, Left: false, Right: false };
+const liveSettings = { size: 25, blastForce: 3.5, laserRange: 80 };
 
-let bgHue = 240, targetHue = 240, timer = performance.now();
+let activeHue = 240;
+let destinationHue = 240;
+let backgroundTimer = performance.now();
 
-function resize() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    ctx.scale(dpr, dpr);
+function updateDimensions() {
+    const dprRatio = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dprRatio;
+    canvas.height = window.innerHeight * dprRatio;
+    ctx.scale(dprRatio, dprRatio);
 }
 
-class Particle {
-    constructor(isPlayer = false) {
-        this.player = isPlayer;
-        this.r = this.player ? settings.size : 3 + Math.random() * 6;
-        this.x = this.r + Math.random() * (window.innerWidth - this.r * 2);
-        this.y = this.r + Math.random() * (window.innerHeight - this.r * 2);
-        this.vx = this.player ? 0 : (Math.random() - 0.5) * SPEED_BASE;
-        this.vy = this.player ? 0 : (Math.random() - 0.5) * SPEED_BASE;
+class ArenaNode {
+    constructor(isHeroInstance = false) {
+        this.isPlayer = isHeroInstance;
+        this.radius = this.isPlayer ? liveSettings.size : 3 + Math.random() * 6;
+        
+        this.x = this.radius + Math.random() * (window.innerWidth - this.radius * 2);
+        this.y = this.radius + Math.random() * (window.innerHeight - this.radius * 2);
+        
+        this.vx = this.isPlayer ? 0 : (Math.random() - 0.5) * BASE_SPEED;
+        this.vy = this.isPlayer ? 0 : (Math.random() - 0.5) * BASE_SPEED;
+        
         this.hue = Math.random() * 360;
-        this.hueSpeed = this.player ? 0 : 0.4 + Math.random() * 2;
-        this.shapeIdx = Math.floor(Math.random() * SHAPES.length);
-        this.angle = Math.random() * Math.PI;
-        this.spin = this.player ? 0.01 : (Math.random() - 0.5) * 0.05;
-        this.speedCap = SPEED_BASE;
+        this.colorSpeed = this.isPlayer ? 0 : 0.4 + Math.random() * 2;
+        this.shapeIndex = Math.floor(Math.random() * SHAPE_MODES.length);
+        this.rotationAngle = Math.random() * Math.PI;
+        this.spinSpeed = this.isPlayer ? 0.01 : (Math.random() - 0.5) * 0.05;
+        this.speedCap = BASE_SPEED;
     }
 
     update() {
-        if (this.player) {
-            this.r = settings.size; // Sync radius to live HUD state
-            const acc = 0.6, fMode = 0.90;
-            if (inputs.moveUp) this.vy -= acc;
-            if (inputs.moveDown) this.vy += acc;
-            if (inputs.moveLeft) this.vx -= accel = acc;
-            if (inputs.moveRight) this.vx += acc;
-            this.vx *= fMode; this.vy *= fMode;
+        if (this.isPlayer) {
+            this.radius = liveSettings.size; // Update shield size instantly from UI
+            
+            const accelerationForce = 0.65;
+            const globalDecay = 0.91;
+            
+            if (movementKeys.Up) this.vy -= accelerationForce;
+            if (movementKeys.Down) this.vy += accelerationForce;
+            if (movementKeys.Left) this.vx -= accelerationForce;
+            if (movementKeys.Right) this.vx += accelerationForce;
+            
+            this.vx *= globalDecay;
+            this.vy *= globalDecay;
         } else {
-            if (this.speedCap > SPEED_BASE) this.speedCap *= 0.98;
+            // Cool down from explosive launches over time
+            if (this.speedCap > BASE_SPEED) {
+                this.speedCap *= 0.98;
+                if (this.speedCap < BASE_SPEED) this.speedCap = BASE_SPEED;
+            }
         }
 
-        this.x += this.vx; this.y += this.vy;
-        this.angle += this.spin;
-        this.hue = (this.hue + this.hueSpeed) % 360;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotationAngle += this.spinSpeed;
+        this.hue = (this.hue + this.colorSpeed) % 360;
 
-        // Bounding box frame reflections
-        if (this.x - this.r < 0) { this.x = this.r; this.vx *= -1; }
-        if (this.x + this.r > window.innerWidth) { this.x = window.innerWidth - this.r; this.vx *= -1; }
-        if (this.y - this.r < 0) { this.y = this.r; this.vy *= -1; }
-        if (this.y + this.r > window.innerHeight) { this.y = window.innerHeight - this.r; this.vy *= -1; }
+        // Secure bounds collisions
+        if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -1; }
+        if (this.x + this.radius > window.innerWidth) { this.x = window.innerWidth - this.radius; this.vx *= -1; }
+        if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -1; }
+        if (this.y + this.radius > window.innerHeight) { this.y = window.innerHeight - this.radius; this.vy *= -1; }
 
-        const speed = Math.hypot(this.vx, this.vy);
-        if (!this.player && speed > this.speedCap) {
-            this.vx = (this.vx / speed) * this.speedCap;
-            this.vy = (this.vy / speed) * this.speedCap;
+        // Dynamic speed clamping
+        const currentSpeed = Math.hypot(this.vx, this.vy);
+        if (!this.isPlayer && currentSpeed > this.speedCap) {
+            this.vx = (this.vx / currentSpeed) * this.speedCap;
+            this.vy = (this.vy / currentSpeed) * this.speedCap;
         }
     }
 
-    mutate() {
-        if (!this.player) {
-            this.shapeIdx = (this.shapeIdx + 1) % SHAPES.length;
-            this.hue = (this.hue + 60) % 360;
+    onImpact() {
+        if (!this.isPlayer) {
+            this.shapeIndex = (this.shapeIndex + 1) % SHAPE_MODES.length;
+            this.hue = (this.hue + 75) % 360;
         }
     }
 
     draw() {
-        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
-        if (this.player) {
-            ctx.shadowBlur = 30; ctx.shadowColor = '#38bdf8'; ctx.fillStyle = '#ffffff';
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotationAngle);
+        
+        if (this.isPlayer) {
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#38bdf8';
+            ctx.fillStyle = '#ffffff';
         } else {
             ctx.fillStyle = `hsla(${this.hue}, 95%, 65%, 0.85)`;
         }
+        
         ctx.beginPath();
-        const mode = this.player ? 'circle' : SHAPES[this.shapeIdx];
-        const r = this.r;
+        const activeShapeLayout = this.isPlayer ? 'circle' : SHAPE_MODES[this.shapeIndex];
+        const r = this.radius;
 
-        if (mode === 'circle') ctx.arc(0, 0, r, 0, Math.PI * 2);
-        else if (mode === 'square') ctx.rect(-r, -r, r * 2, r * 2);
-        else if (mode === 'triangle') { ctx.moveTo(0, -r); ctx.lineTo(r, r); ctx.lineTo(-r, r); }
-        else if (mode === 'star') {
+        if (activeShapeLayout === 'circle') {
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+        } else if (activeShapeLayout === 'square') {
+            ctx.rect(-r, -r, r * 2, r * 2);
+        } else if (activeShapeLayout === 'triangle') {
+            ctx.moveTo(0, -r);
+            ctx.lineTo(r, r);
+            ctx.lineTo(-r, r);
+        } else if (activeShapeLayout === 'star') {
             for (let i = 0; i < 5; i++) {
                 ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r, -Math.sin((18 + i * 72) * Math.PI / 180) * r);
                 ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 2), -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 2));
             }
         }
-        ctx.closePath(); ctx.fill(); ctx.restore();
+        
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
     }
 }
 
-function processPhysics() {
-    for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-            const n1 = nodes[i], n2 = nodes[j];
-            const dx = n2.x - n1.x, dy = n2.y - n1.y;
-            const dist = Math.hypot(dx, dy);
-            const clearance = n1.r + n2.r;
+function processIntersections() {
+    for (let i = 0; i < elementArray.length; i++) {
+        for (let j = i + 1; j < elementArray.length; j++) {
+            const n1 = elementArray[i];
+            const n2 = elementArray[j];
+            
+            const dx = n2.x - n1.x;
+            const dy = n2.y - n1.y;
+            const distance = Math.hypot(dx, dy);
+            const clearanceLimit = n1.radius + n2.radius;
 
-            // Draw laser connections between ambient objects
-            if (dist < settings.laser && !n1.player && !n2.player) {
-                ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y);
-                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 80%, 55%, ${1 - dist / settings.laser})`;
-                ctx.lineWidth = 0.7; ctx.stroke();
+            // Render laser beam grid networks
+            if (distance < liveSettings.laserRange && !n1.isPlayer && !n2.isPlayer) {
+                ctx.beginPath();
+                ctx.moveTo(n1.x, n1.y);
+                ctx.lineTo(n2.x, n2.y);
+                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 85%, 55%, ${1 - distance / liveSettings.laserRange})`;
+                ctx.lineWidth = 0.8;
+                ctx.stroke();
             }
 
-            if (dist < clearance && dist > 0) {
-                const nx = dx / dist, ny = dy / dist;
-                const fix = (clearance - dist) * 0.5;
+            if (distance < clearanceLimit && distance > 0) {
+                const nx = dx / distance;
+                const ny = dy / distance;
+                const overlappingCorrection = (clearanceLimit - distance) * 0.5;
 
-                // PLOW THROUGH PHYSICS: Player remains unfazed, ambient targets absorb all displacement
-                if (n1.player) { n2.x += nx * fix * 2; n2.y += ny * fix * 2; }
-                else if (n2.player) { n1.x -= nx * fix * 2; n1.y -= ny * fix * 2; }
-                else { n1.x -= nx * fix; n1.y -= ny * fix; n2.x += nx * fix; n2.y += ny * fix; }
-
-                const kx = n1.vx - n2.vx, ky = n1.vy - n2.vy;
-                let force = nx * kx + ny * ky;
-
-                if (n1.player || n2.player) {
-                    const struck = n1.player ? n2 : n1;
-                    struck.speedCap = 15; // Set explosive cap limit
-                    force *= (settings.blast * 1.3); // Scale propulsion force dynamically
-
-                    if (n1.player) { n2.vx += force * nx; n2.vy += force * ny; }
-                    else { n1.vx -= force * nx; n1.vy -= force * ny; }
+                // PLOW THROUGH PHYSICS: Player never loses momentum; targets are thrown away
+                if (n1.isPlayer) {
+                    n2.x += nx * overlappingCorrection * 2;
+                    n2.y += ny * overlappingCorrection * 2;
+                } else if (n2.isPlayer) {
+                    n1.x -= nx * overlappingCorrection * 2;
+                    n1.y -= ny * overlappingCorrection * 2;
                 } else {
-                    n1.vx -= force * nx; n1.vy -= force * ny;
-                    n2.vx += force * nx; n2.vy += force * ny;
+                    n1.x -= nx * overlappingCorrection;
+                    n1.y -= ny * overlappingCorrection;
+                    n2.x += nx * overlappingCorrection;
+                    n2.y += ny * overlappingCorrection;
                 }
-                n1.mutate(); n2.mutate();
-            }
-        }
-    }
-}
 
-function setup() {
-    resize(); nodes = [];
-    player = new Particle(true); nodes.push(player);
-    for (let i = 0; i < DOTS_COUNT; i++) nodes.push(new Particle(false));
-}
+                const kx = n1.vx - n2.vx;
+                const ky = n1.vy - n2.vy;
+                let forceMagnitude = nx * kx + ny * ky;
 
-function loop() {
-    const now = performance.now();
-    if (now - timer > 10000) { targetHue = Math.random() * 360; timer = now; }
-    let diff = targetHue - bgHue;
-    if (diff > 180) diff -= 360; if (diff < -180) diff += 360;
-    bgHue = (bgHue + diff * 0.01 + 360) % 360;
+                if (n1.isPlayer || n2.isPlayer) {
+                    const struckTarget = n1.isPlayer ? n2 : n1;
+                    struckTarget.speedCap = 16; 
+                    forceMagnitude *= (liveSettings.blastForce * 1.3); // Dynamic blast boost multiplier
 
-    ctx.fillStyle = `hsla(${bgHue}, 35%, 5%, 0.24)`;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
-    nodes.forEach(n => n.update());
-    processPhysics();
-    nodes.forEach(n => n.draw());
-    requestAnimationFrame(loop);
-}
-
-function handleInput(code, state) {
-    if (code === 'KeyW' || code === 'ArrowUp') inputs.moveUp = state;
-    if (code === 'KeyS' || code === 'ArrowDown') inputs.moveDown = state;
-    if (code === 'KeyA' || code === 'ArrowLeft') inputs.moveLeft = state;
-    if (code === 'KeyD' || code === 'ArrowRight') inputs.moveRight = state;
-}
-
-window.addEventListener('keydown', (e) => handleInput(e.code, true));
-window.addEventListener('keyup', (e) => handleInput(e.code, false));
-window.addEventListener('resize', resize);
-
-// HUD Input Event Listeners
-document.getElementById('slSize').addEventListener('input', (e) => { settings.size = parseInt(e.target.value); document.getElementById('lblSize').innerText = `${e.target.value}px`; });
+                    if (n1.isPlayer) {
+                        n2.vx += forceMagnitude * nx;
+                        n2.vy += forceMagnitude * ny;
+                    } else {
+                        n1.vx -= forceMagnitude * nx;
+                        n1.vy -= forceMagnitude * ny;
+                    }
+                } else {
+                    n1.vx -= forceMagnitude * nx;
+                    n1.vy -= forceMagnitude * ny;
