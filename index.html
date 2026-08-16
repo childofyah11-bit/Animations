@@ -3,274 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>60</title>
+    <title>61</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            background-color: #030508; 
-            overflow: hidden; 
-            width: 100vw; 
-            height: 100vh; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #020406; overflow: hidden; width: 100vw; height: 100vh; 
+            display: flex; justify-content: center; align-items: center;
+            font-family: system-ui, -apple-system, sans-serif;
         }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* Sleek Glassmorphic Modifiers Menu UI Overlay */
-        #uiOverlayMenu {
-            position: absolute;
-            top: 25px;
-            left: 25px;
-            background: rgba(10, 15, 26, 0.65);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 22px;
-            width: 290px;
-            color: #ffffff;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            user-select: none;
-            opacity: 1;
-            transform: scale(1);
+        /* Sleek Glassmorphic Control Panel Overlay */
+        #hudMenu {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(8, 12, 20, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; width: 260px; color: #fff;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5); user-select: none;
         }
-        #uiOverlayMenu.hiddenMenu {
-            opacity: 0;
-            transform: scale(0.9) translateY(-10px);
-            pointer-events: none;
-        }
-        .menuTitleHeader {
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-            color: #ffffff;
-        }
-        .menuSubtitle {
-            font-size: 11px;
-            color: #64748b;
-            margin-bottom: 20px;
-        }
-        .controlModifierRow {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 16px;
-        }
-        .controlModifierRow label {
-            font-size: 12px;
-            font-weight: 500;
-            color: #94a3b8;
-            display: flex;
-            justify-content: space-between;
-        }
-        .controlModifierRow label span {
-            font-weight: 700;
-            color: #38bdf8;
-        }
-        .sliderTrackInput {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 5px;
-            border-radius: 99px;
-            background: rgba(255, 255, 255, 0.1);
-            outline: none;
-        }
-        .sliderTrackInput::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #ffffff;
-            cursor: pointer;
-            box-shadow: 0 0 10px #38bdf8;
-            transition: transform 0.1s;
-        }
-        .sliderTrackInput::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-        }
+        .hudHeader { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+        .row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+        .row label { font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
+        .row label span { font-weight: 700; color: #38bdf8; }
+        .slider { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.15); outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 8px #38bdf8; }
     </style>
 </head>
 <body>
 
-<canvas id="cyberCanvas"></canvas>
+<canvas id="arenaCanvas"></canvas>
 
-<!-- Interactive Power Menu Dashboard Panel Layout -->
-<div id="uiOverlayMenu">
-    <div class="menuTitleHeader">Arena Dashboard</div>
-    <div class="menuSubtitle">Press 'P' to Toggle Control Grid Visibility</div>
-    
-    <div class="controlModifierRow">
-        <label>Player Shield Scale: <span id="valSize">24px</span></label>
-        <input type="range" id="sliderSize" class="sliderTrackInput" min="15" max="60" value="24">
+<div id="hudMenu">
+    <div class="hudHeader">Nebula Dashboard</div>
+    <div class="row">
+        <label>Player Shield Size: <span id="lblSize">25px</span></label>
+        <input type="range" id="slSize" class="slider" min="15" max="60" value="25">
     </div>
-
-    <div class="controlModifierRow">
-        <label>Explosive Blast Force: <span id="valBlast">3.5x</span></label>
-        <input type="range" id="sliderBlast" class="sliderTrackInput" min="1" max="8" step="0.5" value="3.5">
+    <div class="row">
+        <label>Repulsion Blast Force: <span id="lblBlast">3.5x</span></label>
+        <input type="range" id="slBlast" class="slider" min="1" max="8" step="0.5" value="3.5">
     </div>
-
-    <div class="controlModifierRow">
-        <label>Laser Vector Range: <span id="valLaser">85px</span></label>
-        <input type="range" id="sliderLaser" class="sliderTrackInput" min="0" max="250" step="5" value="85">
+    <div class="row">
+        <label>Laser Vector Range: <span id="lblLaser">80px</span></label>
+        <input type="range" id="slLaser" class="slider" min="0" max="200" step="5" value="80">
     </div>
 </div>
 
 <script>
-const canvas = document.getElementById('cyberCanvas');
+const canvas = document.getElementById('arenaCanvas');
 const ctx = canvas.getContext('2d');
 
 const DOTS_COUNT = 150;
-const AMBIENT_SPEED = 1.8;
-const GEOMETRIES = ['circle', 'square', 'triangle', 'star'];
+const SPEED_BASE = 1.6;
+const SHAPES = ['circle', 'square', 'triangle', 'star'];
 
-let nodeMatrix = [];
-let cyberPlayer = null;
+let nodes = [];
+let player = null;
+const inputs = { moveUp: false, moveDown: false, moveLeft: false, moveRight: false };
 
-// Dynamic Modifiers Object linked natively to Menu sliders
-const arenaModifiers = {
-    playerRadius: 24,
-    bounceBlastForce: 3.5,
-    laserNetworkRange: 85
-};
+// Real-time modifier values controlled by sliders
+const settings = { size: 25, blast: 3.5, laser: 80 };
 
-const directionalInputs = { moveUp: false, moveDown: false, moveLeft: false, moveRight: false };
+let bgHue = 240, targetHue = 240, timer = performance.now();
 
-let globalHue = 180;
-let targetHue = 180;
-let timeAnchor = performance.now();
-
-function fitViewport() {
+function resize() {
     const dpr = window.devicePixelRatio || 1;
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
 }
 
-class CyberNode {
-    constructor(isHero = false) {
-        this.hero = isHero;
-        this.size = this.hero ? arenaModifiers.playerRadius : 3 + Math.random() * 6;
-        this.x = this.size + Math.random() * (window.innerWidth - this.size * 2);
-        this.y = this.size + Math.random() * (window.innerHeight - this.size * 2);
-        this.vx = this.hero ? 0 : (Math.random() - 0.5) * AMBIENT_SPEED;
-        this.vy = this.hero ? 0 : (Math.random() - 0.5) * AMBIENT_SPEED;
+class Particle {
+    constructor(isPlayer = false) {
+        this.player = isPlayer;
+        this.r = this.player ? settings.size : 3 + Math.random() * 6;
+        this.x = this.r + Math.random() * (window.innerWidth - this.r * 2);
+        this.y = this.r + Math.random() * (window.innerHeight - this.r * 2);
+        this.vx = this.player ? 0 : (Math.random() - 0.5) * SPEED_BASE;
+        this.vy = this.player ? 0 : (Math.random() - 0.5) * SPEED_BASE;
         this.hue = Math.random() * 360;
-        this.colorSpeed = this.hero ? 0 : 0.5 + Math.random() * 2;
-        this.shapeIdx = Math.floor(Math.random() * GEOMETRIES.length);
+        this.hueSpeed = this.player ? 0 : 0.4 + Math.random() * 2;
+        this.shapeIdx = Math.floor(Math.random() * SHAPES.length);
         this.angle = Math.random() * Math.PI;
-        this.spin = this.hero ? 0.01 : (Math.random() - 0.5) * 0.05;
-        this.speedCap = AMBIENT_SPEED;
+        this.spin = this.player ? 0.01 : (Math.random() - 0.5) * 0.05;
+        this.speedCap = SPEED_BASE;
     }
 
     update() {
-        if (this.hero) {
-            // Apply dynamic sizes mapped instantly from the menu sliders
-            this.size = arenaModifiers.playerRadius;
-
-            const accel = 0.65;
-            const friction = 0.90;
-            if (directionalInputs.moveUp) this.vy -= accel;
-            if (directionalInputs.moveDown) this.vy += accel;
-            if (directionalInputs.moveLeft) this.vx -= accel;
-            if (directionalInputs.moveRight) this.vx += accel;
-            this.vx *= friction;
-            this.vy *= friction;
+        if (this.player) {
+            this.r = settings.size; // Sync radius to live HUD state
+            const acc = 0.6, fMode = 0.90;
+            if (inputs.moveUp) this.vy -= acc;
+            if (inputs.moveDown) this.vy += acc;
+            if (inputs.moveLeft) this.vx -= accel = acc;
+            if (inputs.moveRight) this.vx += acc;
+            this.vx *= fMode; this.vy *= fMode;
         } else {
-            if (this.speedCap > AMBIENT_SPEED) this.speedCap *= 0.98;
+            if (this.speedCap > SPEED_BASE) this.speedCap *= 0.98;
         }
 
-        this.x += this.vx;
-        this.y += this.vy;
+        this.x += this.vx; this.y += this.vy;
         this.angle += this.spin;
-        this.hue = (this.hue + this.colorSpeed) % 360;
+        this.hue = (this.hue + this.hueSpeed) % 360;
 
-        // Wall collisions
-        if (this.x - this.size < 0) { this.x = this.size; this.vx *= -1; }
-        if (this.x + this.size > window.innerWidth) { this.x = window.innerWidth - this.size; this.vx *= -1; }
-        if (this.y - this.size < 0) { this.y = this.size; this.vy *= -1; }
-        if (this.y + this.size > window.innerHeight) { this.y = window.innerHeight - this.size; this.vy *= -1; }
+        // Bounding box frame reflections
+        if (this.x - this.r < 0) { this.x = this.r; this.vx *= -1; }
+        if (this.x + this.r > window.innerWidth) { this.x = window.innerWidth - this.r; this.vx *= -1; }
+        if (this.y - this.r < 0) { this.y = this.r; this.vy *= -1; }
+        if (this.y + this.r > window.innerHeight) { this.y = window.innerHeight - this.r; this.vy *= -1; }
 
-        const velocity = Math.hypot(this.vx, this.vy);
-        if (!this.hero && velocity > this.speedCap) {
-            this.vx = (this.vx / velocity) * this.speedCap;
-            this.vy = (this.vy / velocity) * this.speedCap;
+        const speed = Math.hypot(this.vx, this.vy);
+        if (!this.player && speed > this.speedCap) {
+            this.vx = (this.vx / speed) * this.speedCap;
+            this.vy = (this.vy / speed) * this.speedCap;
         }
     }
 
     mutate() {
-        if (!this.hero) {
-            this.shapeIdx = (this.shapeIdx + 1) % GEOMETRIES.length;
+        if (!this.player) {
+            this.shapeIdx = (this.shapeIdx + 1) % SHAPES.length;
             this.hue = (this.hue + 60) % 360;
         }
     }
 
     draw() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-        if (this.hero) {
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = '#38bdf8';
-            ctx.fillStyle = '#ffffff';
+        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+        if (this.player) {
+            ctx.shadowBlur = 30; ctx.shadowColor = '#38bdf8'; ctx.fillStyle = '#ffffff';
         } else {
             ctx.fillStyle = `hsla(${this.hue}, 95%, 65%, 0.85)`;
         }
         ctx.beginPath();
-        const activeShape = this.hero ? 'circle' : GEOMETRIES[this.shapeIdx];
-        const r = this.size;
+        const mode = this.player ? 'circle' : SHAPES[this.shapeIdx];
+        const r = this.r;
 
-        if (activeShape === 'circle') ctx.arc(0, 0, r, 0, Math.PI * 2);
-        else if (activeShape === 'square') ctx.rect(-r, -r, r * 2, r * 2);
-        else if (activeShape === 'triangle') { ctx.moveTo(0, -r); ctx.lineTo(r, r); ctx.lineTo(-r, r); }
-        else if (activeShape === 'star') {
+        if (mode === 'circle') ctx.arc(0, 0, r, 0, Math.PI * 2);
+        else if (mode === 'square') ctx.rect(-r, -r, r * 2, r * 2);
+        else if (mode === 'triangle') { ctx.moveTo(0, -r); ctx.lineTo(r, r); ctx.lineTo(-r, r); }
+        else if (mode === 'star') {
             for (let i = 0; i < 5; i++) {
                 ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r, -Math.sin((18 + i * 72) * Math.PI / 180) * r);
                 ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 2), -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 2));
             }
         }
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        ctx.closePath(); ctx.fill(); ctx.restore();
     }
 }
 
-function processIntersections() {
-    for (let i = 0; i < nodeMatrix.length; i++) {
-        for (let j = i + 1; j < nodeMatrix.length; j++) {
-            const n1 = nodeMatrix[i];
-            const n2 = nodeMatrix[j];
-            const dx = n2.x - n1.x;
-            const dy = n2.y - n1.y;
+function processPhysics() {
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const n1 = nodes[i], n2 = nodes[j];
+            const dx = n2.x - n1.x, dy = n2.y - n1.y;
             const dist = Math.hypot(dx, dy);
-            const clearance = n1.size + n2.size;
+            const clearance = n1.r + n2.r;
 
-            // Render laser beam linkages safely utilizing live range slider configurations
-            if (dist < arenaModifiers.laserNetworkRange && !n1.hero && !n2.hero) {
-                ctx.beginPath();
-                ctx.moveTo(n1.x, n1.y);
-                ctx.lineTo(n2.x, n2.y);
-                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 80%, 50%, ${1 - dist/arenaModifiers.laserNetworkRange})`;
-                ctx.lineWidth = 0.8;
-                ctx.stroke();
+            // Draw laser connections between ambient objects
+            if (dist < settings.laser && !n1.player && !n2.player) {
+                ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y);
+                ctx.strokeStyle = `hsla(${(n1.hue + n2.hue)/2}, 80%, 55%, ${1 - dist / settings.laser})`;
+                ctx.lineWidth = 0.7; ctx.stroke();
             }
 
             if (dist < clearance && dist > 0) {
-                const nx = dx / dist;
-                const ny = dy / dist;
+                const nx = dx / dist, ny = dy / dist;
                 const fix = (clearance - dist) * 0.5;
 
-                // PLOW THROUGH LOGIC: If a particle encounters the user controllable vehicle token,
-                // the user remains fixed on their vector while the environmental target absorbs all displacement.
-                if (n1.hero) {
-                    n2.x += nx * fix * 2;
-                    n2.y += ny * fix * 2;
-                } else if (n2.hero) {
-                    n1.x -= nx * fix * 2;
-                    n1.y -= ny * fix * 2;
+                // PLOW THROUGH PHYSICS: Player remains unfazed, ambient targets absorb all displacement
+                if (n1.player) { n2.x += nx * fix * 2; n2.y += ny * fix * 2; }
+                else if (n2.player) { n1.x -= nx * fix * 2; n1.y -= ny * fix * 2; }
+                else { n1.x -= nx * fix; n1.y -= ny * fix; n2.x += nx * fix; n2.y += ny * fix; }
+
+                const kx = n1.vx - n2.vx, ky = n1.vy - n2.vy;
+                let force = nx * kx + ny * ky;
+
+                if (n1.player || n2.player) {
+                    const struck = n1.player ? n2 : n1;
+                    struck.speedCap = 15; // Set explosive cap limit
+                    force *= (settings.blast * 1.3); // Scale propulsion force dynamically
+
+                    if (n1.player) { n2.vx += force * nx; n2.vy += force * ny; }
+                    else { n1.vx -= force * nx; n1.vy -= force * ny; }
                 } else {
-                    n1.x -= nx * fix; n1.y -= ny * fix;
+                    n1.vx -= force * nx; n1.vy -= force * ny;
+                    n2.vx += force * nx; n2.vy += force * ny;
+                }
+                n1.mutate(); n2.mutate();
+            }
+        }
+    }
+}
+
+function setup() {
+    resize(); nodes = [];
+    player = new Particle(true); nodes.push(player);
+    for (let i = 0; i < DOTS_COUNT; i++) nodes.push(new Particle(false));
+}
+
+function loop() {
+    const now = performance.now();
+    if (now - timer > 10000) { targetHue = Math.random() * 360; timer = now; }
+    let diff = targetHue - bgHue;
+    if (diff > 180) diff -= 360; if (diff < -180) diff += 360;
+    bgHue = (bgHue + diff * 0.01 + 360) % 360;
+
+    ctx.fillStyle = `hsla(${bgHue}, 35%, 5%, 0.24)`;
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+    nodes.forEach(n => n.update());
+    processPhysics();
+    nodes.forEach(n => n.draw());
+    requestAnimationFrame(loop);
+}
+
+function handleInput(code, state) {
+    if (code === 'KeyW' || code === 'ArrowUp') inputs.moveUp = state;
+    if (code === 'KeyS' || code === 'ArrowDown') inputs.moveDown = state;
+    if (code === 'KeyA' || code === 'ArrowLeft') inputs.moveLeft = state;
+    if (code === 'KeyD' || code === 'ArrowRight') inputs.moveRight = state;
+}
+
+window.addEventListener('keydown', (e) => handleInput(e.code, true));
+window.addEventListener('keyup', (e) => handleInput(e.code, false));
+window.addEventListener('resize', resize);
+
+// HUD Input Event Listeners
+document.getElementById('slSize').addEventListener('input', (e) => { settings.size = parseInt(e.target.value); document.getElementById('lblSize').innerText = `${e.target.value}px`; });
