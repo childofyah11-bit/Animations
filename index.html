@@ -1,48 +1,54 @@
-   <canvas id="simCanvas"></canvas>
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulation</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #0d1117;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
 
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background-color: #0d1117;
-  }
-  canvas {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-  }
-</style>
+<canvas id="simCanvas"></canvas>
 
 <script>
   const canvas = document.getElementById('simCanvas');
   const ctx = canvas.getContext('2d');
 
   // Core constraints
-  const maxTotalDots = 300; // Adjusted for a visually cleaner, ultra-smooth simulation space
+  const maxTotalDots = 300; 
   const maxSpeed = 4;
   let dots = [];
-  let dotsToSpawn = [];
+  let obstacles = [];
 
   // Interactive cursor tracking
   const mouse = { x: 0, y: 0, active: false };
-  const obstacles = [];
 
   // Handle high-DPI/Retina screens seamlessly
   function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 45;
+    const dpr = window.devicePixelRatio || 1;
     canvas.width = window.innerWidth * dpr;
     canvas.height = window.innerHeight * dpr;
     ctx.scale(dpr, dpr);
     
-    // Re-generate elements relative to the new clean screen boundaries
+    // Re-generate layout coordinates on window change
     generateObstacles();
     generateDots();
   }
 
-  // Generate static obstacles distributed safely across the layout
+  // Generate static obstacles distributed safely across the screen layout
   function generateObstacles() {
-    obstacles.length = 0; // Clear array safely
-
+    obstacles = [];
     const width = window.innerWidth;
     const height = window.innerHeight;
 
@@ -56,12 +62,10 @@
     const padding = 120;
 
     for (let i = 0; i < randomCirclesCount; i++) {
-      // FIXED MATH: Correctly structured radius calculations without broken nested arguments
       const radius = 15 + Math.random() * 25; 
       const x = padding + Math.random() * (width - padding * 2);
       const y = padding + Math.random() * (height - padding * 2);
 
-      // Prevent spawning random obstacles right on top of the central main cluster
       const distToCenter = Math.hypot(x - width / 2, y - height / 2);
       if (distToCenter > 220) {
         obstacles.push({ x, y, radius });
@@ -79,7 +83,8 @@
         vx: (Math.random() - 0.5) * maxSpeed,
         vy: (Math.random() - 0.5) * maxSpeed,
         radius: 2 + Math.random() * 2,
-        color: `hsl(${Math.random() * 360}, 70%, 70%)`
+        hue: Math.random() * 360, // Track numbers natively to avoid string matching crashes
+        color: '' 
       });
     }
   }
@@ -97,15 +102,16 @@
 
   // Core Physics and Rendering Loop
   function animate() {
-    // Clear canvas cleanly every single frame
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    // Semi-transparent overlay layer leaves smooth trailing paths behind elements
+    ctx.fillStyle = 'rgba(13, 17, 23, 0.12)'; 
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     // 1. Draw static obstacles with beautiful styling
     obstacles.forEach(obs => {
       ctx.beginPath();
       ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 2;
       ctx.fill();
       ctx.stroke();
@@ -117,6 +123,10 @@
       dot.x += dot.vx;
       dot.y += dot.vy;
 
+      // Increment and cycle the hue value smoothly
+      dot.hue = (dot.hue + 6) % 360; 
+      dot.color = `hsl(${dot.hue}, 95%, 65%)`;
+
       // Bounce off screen walls
       if (dot.x < 0 || dot.x > window.innerWidth) dot.vx *= -1;
       if (dot.y < 0 || dot.y > window.innerHeight) dot.vy *= -1;
@@ -125,7 +135,6 @@
       obstacles.forEach(obs => {
         const dist = Math.hypot(dot.x - obs.x, dot.y - obs.y);
         if (dist < obs.radius + dot.radius) {
-          // Calculate deflection angles instantly
           const angle = Math.atan2(dot.y - obs.y, dot.x - obs.x);
           dot.vx = Math.cos(angle) * maxSpeed;
           dot.vy = Math.sin(angle) * maxSpeed;
@@ -161,6 +170,9 @@
 
   // Initialize and attach lifecycle hooks
   window.addEventListener('resize', resizeCanvas);
-  resizeCanvas(); // Set coordinates and build canvas map safely
-  animate();      // Fire up the high-performance graphics thread loop
+  resizeCanvas(); 
+  animate();      
 </script>
+
+</body>
+</html>
