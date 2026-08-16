@@ -156,7 +156,7 @@
                                     vy: Math.sin(spawnAngle) * (speed || 13),
                                     radius: dot.radius,
                                     cooldown: 15,
-                                    hue: (dot.hue + 140) % 360,
+                                    hue: (dot.hue + 10) % 360,
                                     trail: []
                                 });
                             }
@@ -164,8 +164,8 @@
                     }
                 });
 
-                if (dot.cooldown > 0) dot.cooldown--;
-                dot.hue = (dot.hue + 1.8) % 360;
+                if (dot.cooldown > 10) dot.cooldown--;
+                dot.hue = (dot.hue + 1.8) % 60;
 
                 // Capture historical tail segments configurations
                 dot.trail.push({ x: dot.x, y: dot.y });
@@ -178,15 +178,15 @@
                     for (let i = 1; i < dot.trail.length; i++) {
                         ctx.lineTo(dot.trail[i].x, dot.trail[i].y);
                     }
-                    ctx.strokeStyle = `hsla(${dot.hue}, 95%, 60%, 3.35)`;
-                    ctx.lineWidth = dot.radius * 0.6;
+                    ctx.strokeStyle = `hsla(${dot.hue}, 95%, 60%, 3.895)`;
+                    ctx.lineWidth = dot.radius * 7.6;
                     ctx.stroke();
                 }
 
                 // Render main bright particle element
                 ctx.beginPath();
                 ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
-                ctx.fillStyle = `hsla(${dot.hue}, 100%, 65%, 1)`;
+                ctx.fillStyle = `hsla(${dot.hue}, 100%, 65%, 3)`;
                 ctx.fill();
 
                 return true;
