@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -25,11 +25,14 @@
   const canvas = document.getElementById('simCanvas');
   const ctx = canvas.getContext('2d');
 
-  // Core constraints
-  const maxTotalDots = 40101; 
-  const maxSpeed = 11.99;
+  // Core constraints - Balanced for high performance interactive collision arrays
+  const maxTotalDots = 450; 
+  const maxSpeed = 6;
   let dots = [];
   let obstacles = [];
+
+  // Available interactive geometry shapes
+  const shapes = ['circle', 'square', 'triangle', 'star'];
 
   // Interactive cursor tracking
   const mouse = { x: 0, y: 0, active: false };
@@ -82,11 +85,18 @@
         y: Math.random() * window.innerHeight,
         vx: (Math.random() - 0.5) * maxSpeed,
         vy: (Math.random() - 0.5) * maxSpeed,
-        radius: 2 + Math.random() * 2,
-        hue: Math.random() * 360, // Track numbers natively to avoid string matching crashes
+        radius: 4 + Math.random() * 4, // Slightly larger sizes so shape updates look stunning
+        hue: Math.random() * 360, 
+        colorSpeed: 3 + Math.random() * 10, // Randomized frequency color shift speeds
+        shapeIndex: Math.floor(Math.random() * shapes.length),
         color: '' 
       });
     }
+  }
+
+  // Helper routine to swap current rendering shape type instantly on hits
+  function changeShape(dot) {
+    dot.shapeIndex = (dot.shapeIndex + 1) % shapes.length;
   }
 
   // Interactive mouse tracking events
@@ -103,7 +113,7 @@
   // Core Physics and Rendering Loop
   function animate() {
     // Semi-transparent overlay layer leaves smooth trailing paths behind elements
-    ctx.fillStyle = 'rgba(13, 17, 23, 0.12)'; 
+    ctx.fillStyle = 'rgba(13, 17, 23, 0.15)'; 
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     // 1. Draw static obstacles with beautiful styling
@@ -117,62 +127,174 @@
       ctx.stroke();
     });
 
-    // 2. Update and draw interactive dots
+    // 2. Perform Grid-Based Particle Optimization Loop (Handles heavy ball-to-ball collisions cleanly)
+    const cellSize = 40;
+    const grid = {};
+
     dots.forEach(dot => {
-      // Move particles
+      // Step physics positioning coordinates forward
       dot.x += dot.vx;
       dot.y += dot.vy;
 
-      // Increment and cycle the hue value smoothly
-      dot.hue = (dot.hue + 6) % 360; 
+      // Update rainbow hue variables seamlessly 
+      dot.hue = (dot.hue + dot.colorSpeed) % 360;
       dot.color = `hsl(${dot.hue}, 95%, 65%)`;
 
-      // Bounce off screen walls
-      if (dot.x < 0 || dot.x > window.innerWidth) dot.vx *= -1;
-      if (dot.y < 0 || dot.y > window.innerHeight) dot.vy *= -1;
+      // Wall Collision verification physics logic bounds
+      let wallHit = false;
+      if (dot.x - dot.radius < 0) { dot.x = dot.radius; dot.vx *= -1; wallHit = true; }
+      if (dot.x + dot.radius > window.innerWidth) { dot.x = window.innerWidth - dot.radius; dot.vx *= -1; wallHit = true; }
+      if (dot.y - dot.radius < 0) { dot.y = dot.radius; dot.vy *= -1; wallHit = true; }
+      if (dot.y + dot.radius > window.innerHeight) { dot.y = window.innerHeight - dot.radius; dot.vy *= -1; wallHit = true; }
+      
+      if (wallHit) changeShape(dot);
 
-      // Interact with Static Obstacles (Deflection/Bounce physics)
+      // Map positions straight into checking buckets to save computing energy
+      const cellX = Math.floor(dot.x / cellSize);
+      const cellY = Math.floor(dot.y / cellSize);
+      const cellKey = `${cellX},${cellY}`;
+      if (!grid[cellKey]) grid[cellKey] = [];
+      grid[cellKey].push(dot);
+    });
+
+    // 3. Resolve Ball-on-Ball Particle Deflection Physics
+    for (let i = 0; i < dots.length; i++) {
+      const d1 = dots[i];
+      const cellX = Math.floor(d1.x / cellSize);
+      const cellY = Math.floor(d1.y / cellSize);
+
+      // Check self cell and immediate surrounding grid slots 
+      for (let xOffset = -1; xOffset <= 1; xOffset++) {
+        for (let yOffset = -1; yOffset <= 1; yOffset++) {
+          const targetKey = `${cellX + xOffset},${cellY + yOffset}`;
+          const neighbors = grid[targetKey];
+          if (!neighbors) continue;
+
+          for (let j = 0; j < neighbors.length; j++) {
+            const d2 = neighbors[j];
+            if (d1 === d2) continue; // Skip matching target comparisons
+
+            const dx = d2.x - d1.x;
+            const dy = d2.y - d1.y;
+            const dist = Math.hypot(dx, dy);
+            const minDist = d1.radius + d2.radius;
+
+            // Elastic bounce resolution calculation formulas
+            if (dist < minDist && dist > 0) {
+              const normalX = dx / dist;
+              const normalY = dy / dist;
+
+              // Separate overlapping targets slightly to fix sticky visual bugs
+              const overlap = minDist - dist;
+              d1.x -= normalX * overlap * 0.5;
+              d1.y -= normalY * overlap * 0.5;
+              d2.x += normalX * overlap * 0.5;
+              d2.y += normalY * overlap * 0.5;
+
+              // Calculate relative impact velocities along normal vectors
+              const kx = d1.vx - d2.vx;
+              const ky = d1.vy - d2.vy;
+              const p = 2 * (normalX * kx + normalY * ky) / 2;
+
+              // Bounce vectors away from each other
+              d1.vx -= p * normalX;
+              d1.vy -= p * normalY;
+              d2.vx += p * normalX;
+              d2.vy += p * normalY;
+
+              // Mutate geometric rendering values on successful collisions!
+              changeShape(d1);
+              changeShape(d2);
+            }
+          }
+        }
+      }
+
+      // 4. Interact with Static Circle Obstacles
       obstacles.forEach(obs => {
-        const dist = Math.hypot(dot.x - obs.x, dot.y - obs.y);
-        if (dist < obs.radius + dot.radius) {
-          const angle = Math.atan2(dot.y - obs.y, dot.x - obs.x);
-          dot.vx = Math.cos(angle) * maxSpeed;
-          dot.vy = Math.sin(angle) * maxSpeed;
+        const dist = Math.hypot(d1.x - obs.x, d1.y - obs.y);
+        if (dist < obs.radius + d1.radius) {
+          const angle = Math.atan2(d1.y - obs.y, d1.x - obs.x);
+          
+          // Push outward slightly past boundaries to avoid getting locked in rings
+          d1.x = obs.x + Math.cos(angle) * (obs.radius + d1.radius);
+          d1.y = obs.y + Math.sin(angle) * (obs.radius + d1.radius);
+          
+          d1.vx = Math.cos(angle) * maxSpeed;
+          d1.vy = Math.sin(angle) * maxSpeed;
+          
+          changeShape(d1);
         }
       });
 
-      // Interact with User Cursor (Gravitational attraction)
+      // 5. Interact with User Cursor Attraction Field
       if (mouse.active) {
-        const mDist = Math.hypot(dot.x - mouse.x, dot.y - mouse.y);
+        const mDist = Math.hypot(d1.x - mouse.x, d1.y - mouse.y);
         if (mDist < 150) {
-          dot.vx += (mouse.x - dot.x) * 0.002;
-          dot.vy += (mouse.y - dot.y) * 0.002;
+          d1.vx += (mouse.x - d1.x) * 0.002;
+          d1.vy += (mouse.y - d1.y) * 0.002;
         }
       }
 
-      // Cap maximum physics speeds to prevent chaotic teleportation glitches
-      const speed = Math.hypot(dot.vx, dot.vy);
+      // Limit overall absolute particle movement values
+      const speed = Math.hypot(d1.vx, d1.vy);
       if (speed > maxSpeed) {
-        dot.vx = (dot.vx / speed) * maxSpeed;
-        dot.vy = (dot.vy / speed) * maxSpeed;
+        d1.vx = (d1.vx / speed) * maxSpeed;
+        d1.vy = (d1.vy / speed) * maxSpeed;
       }
 
-      // Draw particle nodes
-      ctx.beginPath();
-      ctx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
-      ctx.fillStyle = dot.color;
-      ctx.fill();
-    });
+      // 6. Complex Vector Multi-Shape Geometry Rendering Matrix Layouts
+      ctx.fillStyle = d1.color;
+      ctx.strokeStyle = d1.color;
+      ctx.lineWidth = 1;
+      
+      const currentShape = shapes[d1.shapeIndex];
+
+      if (currentShape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(d1.x, d1.y, d1.radius, 0, Math.PI * 2);
+        ctx.fill();
+      } 
+      else if (currentShape === 'square') {
+        const size = d1.radius * 2;
+        ctx.fillRect(d1.x - d1.radius, d1.y - d1.radius, size, size);
+      } 
+      else if (currentShape === 'triangle') {
+        ctx.beginPath();
+        ctx.moveTo(d1.x, d1.y - d1.radius);
+        ctx.lineTo(d1.x + d1.radius * 1.2, d1.y + d1.radius);
+        ctx.lineTo(d1.x - d1.radius * 1.2, d1.y + d1.radius);
+        ctx.closePath();
+        ctx.fill();
+      } 
+      else if (currentShape === 'star') {
+        ctx.beginPath();
+        const spikes = 5;
+        const outerRadius = d1.radius * 1.4;
+        const innerRadius = d1.radius * 0.6;
+        let rot = Math.PI / 2 * 3;
+        let cx = d1.x, cy = d1.y;
+        let step = Math.PI / spikes;
+
+        ctx.moveTo(d1.x, d1.y - outerRadius);
+        for (let k = 0; k < spikes; k++) {
+          cx = d1.x + Math.cos(rot) * outerRadius;
+          cy = d1.y + Math.sin(rot) * outerRadius;
+          ctx.lineTo(cx, cy);
+          rot += step;
+
+          cx = d1.x + Math.cos(rot) * innerRadius;
+          cy = d1.y + Math.sin(rot) * innerRadius;
+          ctx.lineTo(cx, cy);
+          rot += step;
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
 
     // Smoothly call next frame repaint loop
     requestAnimationFrame(animate);
   }
 
-  // Initialize and attach lifecycle hooks
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas(); 
-  animate();      
-</script>
 
-</body>
-</html>
