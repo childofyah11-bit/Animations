@@ -1,50 +1,264 @@
-    // Populate environmental entity targets
-    for (let i = 0; i < AMBIENT_PARTICLES_COUNT; i++) {
-        particlesMatrix.push(new ParticleEntity(false));
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> 56 animation  I finally decided to watch a YouTube tutorial</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #05070c;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="arenaCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('arenaCanvas');
+const ctx = canvas.getContext('2d');
+
+// System Configurations
+const AMBIENT_PARTICLES_COUNT = 450;
+const BASE_SPEED_CAP = 3;
+const BLAST_SPEED_CAP = 16;
+const SHAPE_TYPES = ['circle', 'square', 'triangle', 'star'];
+const CLASH_COOLDOWN = 10;
+let particlesMatrix = [];
+let playerObject = null;
+
+// Hardware Input Mapping States
+const activeKeys = { w: false, s: false, a: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+// Color Wave Configuration States
+let ambientHue = 240;
+let objectiveHue = 240;
+let lastCycleTimestamp = performance.now();
+
+// Context bounds auto-scaling matrix
+function adjustResolutionContext() {
+    const visualRatio = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * visualRatio;
+    canvas.height = window.innerHeight * visualRatio;
+    ctx.scale(visualRatio, visualRatio);
+}
+
+// Particle Prototype Class
+class ParticleEntity {
+    constructor(isControllable = false) {
+        this.isUser = isControllable;
+        this.radius = this.isUser ? 22 : 4 + Math.random() * 8;
+        
+        // Distribute coordinates across frame safely
+        this.x = this.radius + Math.random() * (window.innerWidth - this.radius * 2);
+        this.y = this.radius + Math.random() * (window.innerHeight - this.radius * 2);
+        
+        this.vx = this.isUser ? 0 : (Math.random() - 0.5) * BASE_SPEED_CAP;
+        this.vy = this.isUser ? 0 : (Math.random() - 0.5) * BASE_SPEED_CAP;
+        
+        this.hueValue = Math.random() * 360;
+        this.hueShiftVelocity = this.isUser ? 0 : 0.3 + Math.random() * 3.2; // Variable rates
+        
+        this.activeShapeIndex = Math.floor(Math.random() * SHAPE_TYPES.length);
+        this.orientationAngle = Math.random() * Math.PI;
+        this.spinVelocity = this.isUser ? 0.015 : (Math.random() - 0.5) * 0.06;
+        
+        this.cooldownFramesLeft = 0;
+        this.maxTerminalVelocity = BASE_SPEED_CAP;
+    }
+
+    update() {
+        if (this.isUser) {
+            const driveForce = 0.55;
+            const kineticDecay = 0.93;
+            
+            if (activeKeys.w || activeKeys.ArrowUp) this.vy -= driveForce;
+            if (activeKeys.s || activeKeys.ArrowDown) this.vy += driveForce;
+            if (activeKeys.a || activeKeys.ArrowLeft) this.vx -= driveForce;
+            if (activeKeys.d || activeKeys.ArrowRight) this.vx += driveForce;
+            
+            this.vx *= kineticDecay;
+            this.vy *= kineticDecay;
+            
+            const velocityMagnitude = Math.hypot(this.vx, this.vy);
+            if (velocityMagnitude > 7.5) {
+                this.vx = (this.vx / velocityMagnitude) * 7.5;
+                this.vy = (this.vy / velocityMagnitude) * 7.5;
+            }
+        } else {
+            // Decay blast velocity multiplier down to baseline
+            if (this.maxTerminalVelocity > BASE_SPEED_CAP) {
+                this.maxTerminalVelocity *= 0.97;
+                if (this.maxTerminalVelocity < BASE_SPEED_CAP) this.maxTerminalVelocity = BASE_SPEED_CAP;
+            }
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+        this.orientationAngle += this.spinVelocity;
+        this.hueValue = (this.hueValue + this.hueShiftVelocity) % 360;
+
+        if (this.cooldownFramesLeft > 0) {
+            this.cooldownFramesLeft--;
+        }
+
+        // Elastic border reflections
+        if (this.x - this.radius < 0) {
+            this.x = this.radius; this.vx *= -1;
+        } else if (this.x + this.radius > window.innerWidth) {
+            this.x = window.innerWidth - this.radius; this.vx *= -1;
+        }
+        if (this.y - this.radius < 0) {
+            this.y = this.radius; this.vy *= -1;
+        } else if (this.y + this.radius > window.innerHeight) {
+            this.y = window.innerHeight - this.radius; this.vy *= -1;
+        }
+
+        // Clamp environmental entity speeds dynamically
+        const trueVelocity = Math.hypot(this.vx, this.vy);
+        if (!this.isUser && trueVelocity > this.maxTerminalVelocity) {
+            this.vx = (this.vx / trueVelocity) * this.maxTerminalVelocity;
+            this.vy = (this.vy / trueVelocity) * this.maxTerminalVelocity;
+        }
+    }
+
+    triggerMutation() {
+        if (this.cooldownFramesLeft === 0) {
+            if (!this.isUser) {
+                this.activeShapeIndex = (this.activeShapeIndex + 1) % SHAPE_TYPES.length;
+                this.hueValue = (this.hueValue + 90) % 360;
+                this.spinVelocity *= -1;
+            }
+            this.cooldownFramesLeft = CLASH_COOLDOWN;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.orientationAngle);
+        
+        if (this.isUser) {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#ffffff';
+            ctx.fillStyle = '#ffffff';
+        } else {
+            const dynamicAlpha = this.cooldownFramesLeft > 0 ? 0.55 : 0.85;
+            ctx.fillStyle = `hsla(${this.hueValue}, 95%, 60%, ${dynamicAlpha})`;
+        }
+        
+        ctx.beginPath();
+        const renderingShape = this.isUser ? 'circle' : SHAPE_TYPES[this.activeShapeIndex];
+        const r = this.radius;
+
+        if (renderingShape === 'circle') {
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+        } else if (renderingShape === 'square') {
+            ctx.rect(-r, -r, r * 2, r * 2);
+        } else if (renderingShape === 'triangle') {
+            ctx.moveTo(0, -r);
+            ctx.lineTo(r, r);
+            ctx.lineTo(-r, r);
+        } else if (renderingShape === 'star') {
+            for (let i = 0; i < 5; i++) {
+                ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r, -Math.sin((18 + i * 72) * Math.PI / 180) * r);
+                ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 1.9), -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 1.9));
+            }
+        }
+
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
     }
 }
 
-// Core Engine Loop Processing Routine
-function executionCycle() {
-    const ongoingTimestamp = performance.now();
+// Spatial Allocation Mechanics Loop
+function clearCollisionsGrid() {
+    const squareCellDimension = 45;
+    const localizedBucketGrid = {};
 
-    // Check if 10 seconds (10000ms) have elapsed to cycle background color objectives
-    if (ongoingTimestamp - lastCycleTimestamp > 10000) {
-        objectiveHue = Math.random() * 360;
-        lastCycleTimestamp = ongoingTimestamp;
-    }
+    particlesMatrix.forEach(element => {
+        const bucketX = Math.floor(element.x / squareCellDimension);
+        const bucketY = Math.floor(element.y / squareCellDimension);
+        const uniqueStringKey = `${bucketX},${bucketY}`;
+        if (!localizedBucketGrid[uniqueStringKey]) localizedBucketGrid[uniqueStringKey] = [];
+        localizedBucketGrid[uniqueStringKey].push(element);
+    });
 
-    // Linearly interpolate background hues across degrees cleanly
-    let gradientStepDelta = objectiveHue - ambientHue;
-    if (gradientStepDelta > 180) gradientStepDelta -= 360;
-    if (gradientStepDelta < -180) gradientStepDelta += 360;
-    ambientHue = (ambientHue + gradientStepDelta * 0.01 + 360) % 360;
+    particlesMatrix.forEach(p1 => {
+        const bucketX = Math.floor(p1.x / squareCellDimension);
+        const bucketY = Math.floor(p1.y / squareCellDimension);
 
-    // Semi-opaque background clears context and leaves moving motion trails
-    ctx.fillStyle = `hsla(${ambientHue}, 35%, 5%, 0.22)`;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        for (let xOff = -1; xOff <= 1; xOff++) {
+            for (let yOff = -1; yOff <= 1; yOff++) {
+                const structuralKey = `${bucketX + xOff},${bucketY + yOff}`;
+                const neighboringCandidates = localizedBucketGrid[structuralKey];
+                if (!neighboringCandidates) continue;
 
-    particlesMatrix.forEach(p => p.update());
-    clearCollisionsGrid();
-    particlesMatrix.forEach(p => p.draw());
+                neighboringCandidates.forEach(p2 => {
+                    if (p1 === p2) return;
 
-    requestAnimationFrame(executionCycle);
+                    const stepDeltaX = p2.x - p1.x;
+                    const stepDeltaY = p2.y - p1.y;
+                    const linealDistance = Math.hypot(stepDeltaX, stepDeltaY);
+                    const safeClearanceSum = p1.radius + p2.radius;
+
+                    if (linealDistance < safeClearanceSum && linealDistance > 0) {
+                        const axisNormalX = stepDeltaX / linealDistance;
+                        const axisNormalY = stepDeltaY / linealDistance;
+                        const translationFix = (safeClearanceSum - linealDistance) * 0.5;
+
+                        p1.x -= axisNormalX * translationFix;
+                        p1.y -= axisNormalY * translationFix;
+                        p2.x += axisNormalX * translationFix;
+                        p2.y += axisNormalY * translationFix;
+
+                        const trackingKx = p1.vx - p2.vx;
+                        const trackingKy = p1.vy - p2.vy;
+                        let deflectionScalar = axisNormalX * trackingKx + axisNormalY * trackingKy;
+
+                        // EXPLOSIVE MODIFIER: If hit by player, amplify speed and change maximum clamp limits
+                        if (p1.isUser || p2.isUser) {
+                            const vulnerableTarget = p1.isUser ? p2 : p1;
+                            vulnerableTarget.maxTerminalVelocity = BLAST_SPEED_CAP;
+                            deflectionScalar *= 2.8;
+                        }
+
+                        p1.vx -= deflectionScalar * axisNormalX;
+                        p1.vy -= deflectionScalar * axisNormalY;
+                        p2.vx += deflectionScalar * axisNormalX;
+                        p2.vy += deflectionScalar * axisNormalY;
+
+                        p1.triggerMutation();
+                        p2.triggerMutation();
+                    }
+                });
+            }
+        }
+    });
 }
 
-// Global Hardware Event Configurations
-function registerKeyEvents(eventCode, activeStatus) {
-    if (eventCode in activeKeys) activeKeys[eventCode] = activeStatus;
-}
-
-window.addEventListener('keydown', (e) => registerKeyEvents(e.key, true));
-window.addEventListener('keyup', (e) => registerKeyEvents(e.key, false));
-window.addEventListener('resize', () => {
+// Initialization Boot Assignment Routine
+function instantiateEnvironment() {
     adjustResolutionContext();
-});
+    particlesMatrix = [];
+    
+    playerObject = new ParticleEntity(true);
+    particlesMatrix.push(playerObject);
 
-// Boot and run simulation engines instantly
-instantiateEnvironment();
-executionCycle();
-</script>
-</body>
-</html>
