@@ -52,7 +52,7 @@
 const cvs = document.getElementById('canvas');
 const ctx = cvs.getContext('2d');
 
-const TOTAL_ELEMENTS = 130;
+const TOTAL_ELEMENTS = 1080;
 const SPEED_NORMAL = 1.5;
 const GEOMETRIES = ['circle', 'square', 'triangle', 'star'];
 
@@ -60,7 +60,7 @@ let nodes = [];
 let hero = null;
 
 const activeKeys = { Up: false, Down: false, Left: false, Right: false };
-const cfg = { size: 25, force: 3.5, net: 80 };
+const cfg = { size: 30, force: 3.5, net: 80 };
 
 let bgHue = 240, destHue = 240, bgTime = performance.now();
 
