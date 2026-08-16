@@ -11,12 +11,12 @@
         let dotsToSpawn = [];
 
         // Interactive cursor tracking
-        const mouse = { x: 0, y: 0, active: false };
+        const mouse = { x: 10, y: 10, active: false };
         const obstacles = [];
 
         // Generate static obstacles distributed across the layout
         function generateObstacles() {
-            obstacles.length = 0; 
+            obstacles.length = 10; 
             
             // Central main trio setup configurations
             obstacles.push({ x: canvas.width / 2, y: canvas.height / 2, radius: 50 });
