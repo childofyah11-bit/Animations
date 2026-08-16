@@ -1,129 +1,124 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulation  Model  37th </title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background-color: #0c0f12;
-    }
-    canvas {
-      display: block;
-      width: 100vw;
-      height: 100vh;
-    }
-  </style>
-</head>
-<body>
+// Available transform shapes map
+const geometryShapes = ['circle', 'square', 'triangle', 'star'];
 
-<canvas id="simulationCanvas"></canvas>
+// Global Interactive Cursor Tracker
+const userCursor = { x: 0, y: 0, active: false };
 
-<script>
-  const canvas = document.getElementById('simulationCanvas');
-  const ctx = canvas.getContext('2d');
-
-  // Architecture Configurations
-  const totalParticles = 400;
-  const maxVelocityLimit = 5;
-  let particles = [];
-  let rigidObstacles = [];
-
-  // Available transform shapes map
-  const geometryShapes = ['circle', 'square', 'triangle', 'star'];
-
-  // Global Interactive Cursor Tracker
-  const userCursor = { x: 0, y: 0, active: false };
-
-  // Set up crisp rendering context boundaries across high-DPI panels
-  function configureDisplayContext() {
+// Set up crisp rendering context boundaries across high-DPI panels
+function configureDisplayContext() {
     const pixelRatioScale = window.devicePixelRatio || 1;
     canvas.width = window.innerWidth * pixelRatioScale;
     canvas.height = window.innerHeight * pixelRatioScale;
     ctx.scale(pixelRatioScale, pixelRatioScale);
-    
     initializeStaticObstacles();
     populateParticleMatrix();
-  }
+}
 
-  // Generate static anchors safely mapped inside viewport limits
-  function initializeStaticObstacles() {
+// Generate static anchors safely mapped inside viewport limits
+function initializeStaticObstacles() {
     rigidObstacles = [];
     const layoutW = window.innerWidth;
     const layoutH = window.innerHeight;
-
+    
     // Anchor configurations
     rigidObstacles.push({ x: layoutW / 2, y: layoutH / 2, sizeRadius: 65 });
     rigidObstacles.push({ x: layoutW / 2 - 200, y: layoutH / 2, sizeRadius: 35 });
     rigidObstacles.push({ x: layoutW / 2 + 200, y: layoutH / 2, sizeRadius: 45 });
-
+    
     const extraNodesCount = 5;
     const boundarySafetyPadding = 130;
-
     for (let i = 0; i < extraNodesCount; i++) {
-      const generatedRadius = 15 + Math.random() * 25;
-      const posX = boundarySafetyPadding + Math.random() * (layoutW - boundarySafetyPadding * 2);
-      const posY = boundarySafetyPadding + Math.random() * (layoutH - boundarySafetyPadding * 2);
-
-      // Verify node positions do not intersect the main cluster space coordinates
-      if (Math.hypot(posX - layoutW / 2, posY - layoutH / 2) > 230) {
-        rigidObstacles.push({ x: posX, y: posY, sizeRadius: generatedRadius });
-      }
+        const generatedRadius = 15 + Math.random() * 25;
+        const posX = boundarySafetyPadding + Math.random() * (layoutW - boundarySafetyPadding * 2);
+        const posY = boundarySafetyPadding + Math.random() * (layoutH - boundarySafetyPadding * 2);
+        
+        // Verify node positions do not intersect the main cluster space coordinates
+        if (Math.hypot(posX - layoutW / 2, posY - layoutH / 2) > 230) {
+            rigidObstacles.push({ x: posX, y: posY, sizeRadius: generatedRadius });
+        }
     }
-  }
+}
 
-  // Populate primary tracking metrics
-  function populateParticleMatrix() {
+// Populate primary tracking metrics
+function populateParticleMatrix() {
     particles = [];
     for (let i = 0; i < totalParticles; i++) {
-      particles.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
-        vx: (Math.random() - 0.5) * maxVelocityLimit,
-        vy: (Math.random() - 0.5) * maxVelocityLimit,
-        dimensionRadius: 5 + Math.random() * 4,
-        hueValue: Math.random() * 360,
-        hueFrequencySpeed: 4 + Math.random() * 12, // Distinct speed tracker frequency assignments
-        shapeTypeIndex: Math.floor(Math.random() * geometryShapes.length)
-      });
+        particles.push({
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            vx: (Math.random() - 0.5) * maxVelocityLimit,
+            vy: (Math.random() - 0.5) * maxVelocityLimit,
+            dimensionRadius: 5 + Math.random() * 4,
+            hueValue: Math.random() * 360,
+            hueFrequencySpeed: 1 + Math.random() * 2, // Smooth color cycling rate
+            shapeTypeIndex: Math.floor(Math.random() * geometryShapes.length)
+        });
     }
-  }
+}
 
-  // Rotate shape sequence assignment cleanly upon certified collisions
-  function triggersShapeMutation(targetParticle) {
+// Rotate shape sequence assignment cleanly upon certified collisions
+function triggersShapeMutation(targetParticle) {
     targetParticle.shapeTypeIndex = (targetParticle.shapeTypeIndex + 1) % geometryShapes.length;
-  }
+}
 
-  // Device context hook bindings
-  window.addEventListener('mousemove', (event) => {
+// Helper to render complex geometries dynamically
+function drawCustomShape(p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.fillStyle = `hsla(${p.hueValue}, 85%, 65%, 0.85)`;
+    ctx.beginPath();
+    
+    const type = geometryShapes[p.shapeTypeIndex];
+    const r = p.dimensionRadius;
+
+    if (type === 'circle') {
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+    } else if (type === 'square') {
+        ctx.rect(-r, -r, r * 2, r * 2);
+    } else if (type === 'triangle') {
+        ctx.moveTo(0, -r);
+        ctx.lineTo(r, r);
+        ctx.lineTo(-r, r);
+    } else if (type === 'star') {
+        for (let i = 0; i < 5; i++) {
+            ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r, -Math.sin((18 + i * 72) * Math.PI / 180) * r);
+            ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r/2), -Math.sin((54 + i * 72) * Math.PI / 180) * (r/2));
+        }
+    }
+    
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
+// Device context hook bindings
+window.addEventListener('mousemove', (event) => {
     userCursor.x = event.clientX;
     userCursor.y = event.clientY;
     userCursor.active = true;
-  });
+});
 
-  window.addEventListener('mouseleave', () => {
+window.addEventListener('mouseleave', () => {
     userCursor.active = false;
-  });
+});
 
-  window.addEventListener('resize', configureDisplayContext);
+window.addEventListener('resize', configureDisplayContext);
 
-  // Engine loop processing routine
-  function executionCycle() {
+// Engine loop processing routine
+function executionCycle() {
     // Draws semi-opaque layer to trail color metrics cleanly
     ctx.fillStyle = 'rgba(12, 15, 18, 0.16)';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     // Render fixed structural buffers
     rigidObstacles.forEach(obstacleNode => {
-      ctx.beginPath();
-      ctx.arc(obstacleNode.x, obstacleNode.y, obstacleNode.sizeRadius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.lineWidth = 2;
-      ctx.fill();
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(obstacleNode.x, obstacleNode.y, obstacleNode.sizeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
     });
 
     // Partition tracking space instantly using dynamic indexing keys
@@ -131,116 +126,97 @@
     const optimizationGrid = {};
 
     particles.forEach(element => {
-      element.x += element.vx;
-      element.y += element.vy;
+        element.x += element.vx;
+        element.y += element.vy;
 
-      // Cycle multi-frequency color maps natively
-      element.hueValue = (element.hueValue + element.hueFrequencySpeed) % 360;
+        // Cycle multi-frequency color maps natively
+        element.hueValue = (element.hueValue + element.hueFrequencySpeed) % 360;
 
-      // Outer boundary wall physics bounce trackers
-      let boundaryIntersectionOccurred = false;
-      if (element.x - element.dimensionRadius < 0) { 
-        element.x = element.dimensionRadius; element.vx *= -1; boundaryIntersectionOccurred = true; 
-      }
-      if (element.x + element.dimensionRadius > window.innerWidth) { 
-        element.x = window.innerWidth - element.dimensionRadius; element.vx *= -1; boundaryIntersectionOccurred = true; 
-      }
-      if (element.y - element.dimensionRadius < 0) { 
-        element.y = element.dimensionRadius; element.vy *= -1; boundaryIntersectionOccurred = true; 
-      }
-      if (element.y + element.dimensionRadius > window.innerHeight) { 
-        element.y = window.innerHeight - element.dimensionRadius; element.vy *= -1; boundaryIntersectionOccurred = true; 
-      }
+        // Outer boundary wall physics bounce trackers
+        let boundaryIntersectionOccurred = false;
+        if (element.x - element.dimensionRadius < 0) {
+            element.x = element.dimensionRadius; element.vx *= -1; boundaryIntersectionOccurred = true;
+        }
+        if (element.x + element.dimensionRadius > window.innerWidth) {
+            element.x = window.innerWidth - element.dimensionRadius; element.vx *= -1; boundaryIntersectionOccurred = true;
+        }
+        if (element.y - element.dimensionRadius < 0) {
+            element.y = element.dimensionRadius; element.vy *= -1; boundaryIntersectionOccurred = true;
+        }
+        if (element.y + element.dimensionRadius > window.innerHeight) {
+            element.y = window.innerHeight - element.dimensionRadius; element.vy *= -1; boundaryIntersectionOccurred = true;
+        }
 
-      if (boundaryIntersectionOccurred) {
-        triggersShapeMutation(element);
-      }
+        if (boundaryIntersectionOccurred) {
+            triggersShapeMutation(element);
+        }
 
-      const gridKeyX = Math.floor(element.x / cellBucketSize);
-      const gridKeyY = Math.floor(element.y / cellBucketSize);
-      const compositeLookupKey = `${gridKeyX},${gridKeyY}`;
-      
-      if (!optimizationGrid[compositeLookupKey]) {
-        optimizationGrid[compositeLookupKey] = [];
-      }
-      optimizationGrid[compositeLookupKey].push(element);
+        const gridKeyX = Math.floor(element.x / cellBucketSize);
+        const gridKeyY = Math.floor(element.y / cellBucketSize);
+        const compositeLookupKey = `${gridKeyX},${gridKeyY}`;
+
+        if (!optimizationGrid[compositeLookupKey]) {
+            optimizationGrid[compositeLookupKey] = [];
+        }
+        optimizationGrid[compositeLookupKey].push(element);
     });
 
     // Handle interactive object vector resolution mechanics
     for (let indexA = 0; indexA < particles.length; indexA++) {
-      const subjectNode = particles[indexA];
-      const currentCellX = Math.floor(subjectNode.x / cellBucketSize);
-      const currentCellY = Math.floor(subjectNode.y / cellBucketSize);
+        const subjectNode = particles[indexA];
+        const currentCellX = Math.floor(subjectNode.x / cellBucketSize);
+        const currentCellY = Math.floor(subjectNode.y / cellBucketSize);
 
-      // Verify proximity using regional spatial layout scanning arrays
-      for (let offsetIndexX = -1; offsetIndexX <= 1; offsetIndexX++) {
-        for (let offsetIndexY = -1; offsetIndexY <= 1; offsetIndexY++) {
-          const areaLookupString = `${currentCellX + offsetIndexX},${currentCellY + offsetIndexY}`;
-          const localizedCandidates = optimizationGrid[areaLookupString];
-          if (!localizedCandidates) continue;
+        // Verify proximity using regional spatial layout scanning arrays
+        for (let offsetIndexX = -1; offsetIndexX <= 1; offsetIndexX++) {
+            for (let offsetIndexY = -1; offsetIndexY <= 1; offsetIndexY++) {
+                const areaLookupString = `${currentCellX + offsetIndexX},${currentCellY + offsetIndexY}`;
+                const localizedCandidates = optimizationGrid[areaLookupString];
+                if (!localizedCandidates) continue;
 
-          for (let indexB = 0; indexB < localizedCandidates.length; indexB++) {
-            const compareNode = localizedCandidates[indexB];
-            if (subjectNode === compareNode) continue;
+                for (let indexB = 0; indexB < localizedCandidates.length; indexB++) {
+                    const compareNode = localizedCandidates[indexB];
+                    if (subjectNode === compareNode) continue;
 
-            const coordinateDistanceX = compareNode.x - subjectNode.x;
-            const coordinateDistanceY = compareNode.y - subjectNode.y;
-            const absoluteSpanDistance = Math.hypot(coordinateDistanceX, coordinateDistanceY);
-            const minimumClearanceRequired = subjectNode.dimensionRadius + compareNode.dimensionRadius;
+                    const coordinateDistanceX = compareNode.x - subjectNode.x;
+                    const coordinateDistanceY = compareNode.y - subjectNode.y;
+                    const absoluteSpanDistance = Math.hypot(coordinateDistanceX, coordinateDistanceY);
+                    const minimumClearanceRequired = subjectNode.dimensionRadius + compareNode.dimensionRadius;
 
-            // Compute precision elastic deflection velocities natively
-            if (absoluteSpanDistance < minimumClearanceRequired && absoluteSpanDistance > 0) {
-              const identityNormalX = coordinateDistanceX / absoluteSpanDistance;
-              const identityNormalY = coordinateDistanceY / absoluteSpanDistance;
+                    // Compute precision elastic deflection velocities natively
+                    if (absoluteSpanDistance < minimumClearanceRequired && absoluteSpanDistance > 0) {
+                        const identityNormalX = coordinateDistanceX / absoluteSpanDistance;
+                        const identityNormalY = coordinateDistanceY / absoluteSpanDistance;
+                        const separationOffsetStep = (minimumClearanceRequired - absoluteSpanDistance) * 0.5;
 
-              const separationOffsetStep = (minimumClearanceRequired - absoluteSpanDistance) * 0.5;
-              subjectNode.x -= identityNormalX * separationOffsetStep;
-              subjectNode.y -= identityNormalY * separationOffsetStep;
-              compareNode.x += identityNormalX * separationOffsetStep;
-              compareNode.y += identityNormalY * separationOffsetStep;
+                        subjectNode.x -= identityNormalX * separationOffsetStep;
+                        subjectNode.y -= identityNormalY * separationOffsetStep;
+                        compareNode.x += identityNormalX * separationOffsetStep;
+                        compareNode.y += identityNormalY * separationOffsetStep;
 
-              const impactDeltaVelocityX = subjectNode.vx - compareNode.vx;
-              const impactDeltaVelocityY = subjectNode.vy - compareNode.vy;
-              const scalarVelocityMetric = (identityNormalX * impactDeltaVelocityX + identityNormalY * impactDeltaVelocityY);
+                        const impactDeltaVelocityX = subjectNode.vx - compareNode.vx;
+                        const impactDeltaVelocityY = subjectNode.vy - compareNode.vy;
+                        const scalarVelocityMetric = (identityNormalX * impactDeltaVelocityX + identityNormalY * impactDeltaVelocityY);
 
-              subjectNode.vx -= scalarVelocityMetric * identityNormalX;
-              subjectNode.vy -= scalarVelocityMetric * identityNormalY;
-              compareNode.vx += scalarVelocityMetric * identityNormalX;
-              compareNode.vy += scalarVelocityMetric * identityNormalY;
+                        subjectNode.vx -= scalarVelocityMetric * identityNormalX;
+                        subjectNode.vy -= scalarVelocityMetric * identityNormalY;
+                        compareNode.vx += scalarVelocityMetric * identityNormalX;
+                        compareNode.vy += scalarVelocityMetric * identityNormalY;
 
-              triggersShapeMutation(subjectNode);
-              triggersShapeMutation(compareNode);
+                        triggersShapeMutation(subjectNode);
+                        triggersShapeMutation(compareNode);
+                    }
+                }
             }
-          }
         }
-      }
 
-      // Analyze intersection vectors against static anchor objects
-      rigidObstacles.forEach(anchor => {
-        const structuralSpanDistance = Math.hypot(subjectNode.x - anchor.x, subjectNode.y - anchor.y);
-        const obstacleClearanceLimit = anchor.sizeRadius + subjectNode.dimensionRadius;
+        // Analyze intersection vectors against static anchor objects
+        rigidObstacles.forEach(anchor => {
+            const structuralSpanDistance = Math.hypot(subjectNode.x - anchor.x, subjectNode.y - anchor.y);
+            const obstacleClearanceLimit = anchor.sizeRadius + subjectNode.dimensionRadius;
 
-        if (structuralSpanDistance < obstacleClearanceLimit) {
-          const radialAngleAngle = Math.atan2(subjectNode.y - anchor.y, subjectNode.x - anchor.x);
-          
-          subjectNode.x = anchor.x + Math.cos(radialAngleAngle) * obstacleClearanceLimit;
-          subjectNode.y = anchor.y + Math.sin(radialAngleAngle) * obstacleClearanceLimit;
-          
-          subjectNode.vx = Math.cos(radialAngleAngle) * maxVelocityLimit;
-          subjectNode.vy = Math.sin(radialAngleAngle) * maxVelocityLimit;
-          
-          triggersShapeMutation(subjectNode);
-        }
-      });
-
-      // User mouse gravitational fields tracking matrix
-      if (userCursor.active) {
-        const mouseDeltaDistance = Math.hypot(subjectNode.x - userCursor.x, subjectNode.y - userCursor.y);
-        if (mouseDeltaDistance < 160) {
-          subjectNode.vx += (userCursor.x - subjectNode.x) * 0.002;
-          subjectNode.vy += (userCursor.y - subjectNode.y) * 0.002;
-        }
-      }
-
-      // Velocity threshold checks
-      const operationalSpeed = Math.hypot(subjectNode.vx, subjectNode.vy);
+            if (structuralSpanDistance < obstacleClearanceLimit) {
+                const radialAngleAngle = Math.atan2(subjectNode.y - anchor.y, subjectNode.x - anchor.x);
+                subjectNode.x = anchor.x + Math.cos(radialAngleAngle) * obstacleClearanceLimit;
+                subjectNode.y = anchor.y + Math.sin(radialAngleAngle) * obstacleClearanceLimit;
+                subjectNode.vx = Math.cos(radialAngleAngle) * maxVelocityLimit;
