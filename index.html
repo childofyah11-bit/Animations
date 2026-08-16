@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geometric Shape Shifter Simulation</title>
+    <title>Simulation36</title>
     <style>
         * {
             margin: 0;
@@ -11,13 +11,10 @@
             box-sizing: border-box;
         }
         body {
-            background-color: #0b0f19;
+            background-color: #080b11;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             width: 100vw;
+            height: 100vh;
         }
         canvas {
             display: block;
@@ -28,49 +25,49 @@
 </head>
 <body>
 
-<canvas id="simCanvas"></canvas>
+<canvas id="simulationCanvas"></canvas>
 
 <script>
-const canvas = document.getElementById('simCanvas');
+const canvas = document.getElementById('simulationCanvas');
 const ctx = canvas.getContext('2d');
 
-// Simulation Configurations
-const TOTAL_PARTICLES = 300;
-const MAX_SPEED = 3;
-const SHAPES = ['circle', 'square', 'triangle', 'star'];
+// Engine Configurations
+const TOTAL_PARTICLES = 250;
+const SPEED_LIMIT = 2.5;
+const SHAPE_LIBRARY = ['circle', 'square', 'triangle', 'star'];
 let particles = [];
 
-// Handle crisp resolution on retina displays
-function setupCanvasDimensions() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    ctx.scale(dpr, dpr);
+// Crisp multi-DPI display setup
+function resizeDisplay() {
+    const scale = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * scale;
+    canvas.height = window.innerHeight * scale;
+    ctx.scale(scale, scale);
 }
 
-// Particle Generation Blueprint
+// Particle Class Blueprint
 class Particle {
     constructor() {
-        this.radius = 4 + Math.random() * 8; // Varying Sizes
+        this.radius = 5 + Math.random() * 8; // Varied sizes
         this.x = this.radius + Math.random() * (window.innerWidth - this.radius * 2);
         this.y = this.radius + Math.random() * (window.innerHeight - this.radius * 2);
-        
-        // Random velocities
-        this.vx = (Math.random() - 0.5) * MAX_SPEED;
-        this.vy = (Math.random() - 0.5) * MAX_SPEED;
-        
-        this.hue = Math.random() * 360; // Random starting color
-        this.shapeIndex = Math.floor(Math.random() * SHAPES.length);
+        this.vx = (Math.random() - 0.5) * SPEED_LIMIT;
+        this.vy = (Math.random() - 0.5) * SPEED_LIMIT;
+        this.hue = Math.random() * 360;
+        this.shapeIndex = Math.floor(Math.random() * SHAPE_LIBRARY.length);
+        this.angle = Math.random() * Math.PI;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.04; // Smooth internal spin
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
+        this.angle += this.rotationSpeed;
 
-        // Continuous slow color shift over time
-        this.hue = (this.hue + 0.5) % 360;
+        // Idle slow rainbow wave color shifts
+        this.hue = (this.hue + 0.3) % 360;
 
-        // Wall Bouncing Logic
+        // Precise wall bounce physics
         if (this.x - this.radius < 0) {
             this.x = this.radius;
             this.vx *= -1;
@@ -88,20 +85,23 @@ class Particle {
         }
     }
 
-    onCollide() {
-        // Change shapes on collision
-        this.shapeIndex = (this.shapeIndex + 1) % SHAPES.length;
-        // Shift color hue dramatically on impact
-        this.hue = (this.hue + 60) % 360;
+    collide() {
+        // Morph shapes sequentially on impact
+        this.shapeIndex = (this.shapeIndex + 1) % SHAPE_LIBRARY.length;
+        // Explode color into a distinct contrasting hue instantly on collision
+        this.hue = (this.hue + 75) % 360;
+        // Invert rotation direction on clash
+        this.rotationSpeed *= -1;
     }
 
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
         ctx.fillStyle = `hsla(${this.hue}, 95%, 60%, 0.85)`;
         ctx.beginPath();
 
-        const currentShape = SHAPES[this.shapeIndex];
+        const currentShape = SHAPE_LIBRARY[this.shapeIndex];
         const r = this.radius;
 
         if (currentShape === 'circle') {
@@ -115,7 +115,7 @@ class Particle {
         } else if (currentShape === 'star') {
             for (let i = 0; i < 5; i++) {
                 ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r, -Math.sin((18 + i * 72) * Math.PI / 180) * r);
-                ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 2), -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 2));
+                ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r / 1.8), -Math.sin((54 + i * 72) * Math.PI / 180) * (r / 1.8));
             }
         }
 
@@ -125,8 +125,8 @@ class Particle {
     }
 }
 
-// Check collisions using spatial partitioning optimization
-function resolveCollisions() {
+// Kinetic physics resolution engine
+function checkCollisions() {
     for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
             const p1 = particles[i];
@@ -134,70 +134,68 @@ function resolveCollisions() {
 
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
-            const dist = Math.hypot(dx, dy);
-            const minDist = p1.radius + p2.radius;
+            const distance = Math.hypot(dx, dy);
+            const targetDistance = p1.radius + p2.radius;
 
-            if (dist < minDist && dist > 0) {
-                // Normal overlap correction vector
-                const nx = dx / dist;
-                const ny = dy / dist;
-                const overlap = (minDist - dist) * 0.5;
+            if (distance < targetDistance && distance > 0) {
+                // Separation offset coordinates
+                const nx = dx / distance;
+                const ny = dy / distance;
+                const correction = (targetDistance - distance) * 0.5;
 
-                // Push apart instantly to fix overlap sticking
-                p1.x -= nx * overlap;
-                p1.y -= ny * overlap;
-                p2.x += nx * overlap;
-                p2.y += ny * overlap;
+                p1.x -= nx * correction;
+                p1.y -= ny * correction;
+                p2.x += nx * correction;
+                p2.y += ny * correction;
 
-                // Simple elastic collision vector reflection swap
+                // Momentum vector redirection calculation
                 const kx = p1.vx - p2.vx;
                 const ky = p1.vy - p2.vy;
-                const p = nx * kx + ny * ky;
+                const force = nx * kx + ny * ky;
 
-                p1.vx -= p * nx;
-                p1.vy -= p * ny;
-                p2.vx += p * nx;
-                p2.vy += p * ny;
+                p1.vx -= force * nx;
+                p1.vy -= force * ny;
+                p2.vx += force * nx;
+                p2.vy += force * ny;
 
-                // Trigger shape mutations and color shifts
-                p1.onCollide();
-                p2.onCollide();
+                // Fire mutating behaviors
+                p1.collide();
+                p2.collide();
             }
         }
     }
 }
 
-// Initialization Entry Point
-function init() {
-    setupCanvasDimensions();
+// Global System Boot Instantiation
+function setup() {
+    resizeDisplay();
     particles = [];
     for (let i = 0; i < TOTAL_PARTICLES; i++) {
         particles.push(new Particle());
     }
 }
 
-// Continuous Core Animation Loop
-function loop() {
-    // Faint overlay transparent fill creates fluid particle motion trailing
-    ctx.fillStyle = 'rgba(11, 15, 25, 0.2)';
+// Animation core runner loop
+function animate() {
+    // Elegant neon motion trailing opacity overlay
+    ctx.fillStyle = 'rgba(8, 11, 17, 0.2)';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-    // Dynamic Updates
     particles.forEach(p => p.update());
-    resolveCollisions();
+    checkCollisions();
     particles.forEach(p => p.draw());
 
-    requestAnimationFrame(loop);
+    requestAnimationFrame(animate);
 }
 
-// Hook Window Resize Events Safely
+// Safe layout resize hooks
 window.addEventListener('resize', () => {
-    setupCanvasDimensions();
+    resizeDisplay();
 });
 
-// Run Simulation Engine
-init();
-loop();
+// Fire engine loops
+setup();
+animate();
 </script>
 </body>
 </html>
